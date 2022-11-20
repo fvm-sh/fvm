@@ -429,4 +429,4 @@ Currently, the sole maintainer is [@hyiso](https://github.com/hyiso) - more main
 
 ## License
 
-See [LICENSE.md](./LICENSE.md).
+See [LICENSE](./LICENSE).
