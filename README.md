@@ -1,4 +1,4 @@
-# Flutter Version Manager [![fvm version](https://img.shields.io/badge/version-v0.0.1-yellow.svg)][2]
+# Flutter Version Manager [![fvm version](https://img.shields.io/badge/version-v0.0.1-40d0fd.svg)][2]
 
 Inspired by [nvm](https://github.com/nvm-sh/nvm)
 
