@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+# bash completion for Flutter Version Manager (NVM)
+
+if ! command -v fvm &> /dev/null; then
+  return
+fi
+
+__fvm_generate_completion() {
+  declare current_word
+  current_word="${COMP_WORDS[COMP_CWORD]}"
+  # shellcheck disable=SC2207
+  COMPREPLY=($(compgen -W "$1" -- "${current_word}"))
+  return 0
+}
+
+__fvm_commands() {
+  declare current_word
+  declare command
+
+  current_word="${COMP_WORDS[COMP_CWORD]}"
+
+  COMMANDS='
+    help install uninstall use run exec
+    alias unalias reinstall-packages
+    current list ls list-remote ls-remote
+    install-latest-npm
+    cache deactivate unload
+    version version-remote which'
+
+  if [ ${#COMP_WORDS[@]} == 4 ]; then
+
+    command="${COMP_WORDS[COMP_CWORD - 2]}"
+    case "${command}" in
+      alias) __fvm_installed_nodes ;;
+    esac
+
+  else
+
+    case "${current_word}" in
+      -*) __fvm_options ;;
+      *) __fvm_generate_completion "${COMMANDS}" ;;
+    esac
+
+  fi
+}
+
+__fvm_options() {
+  OPTIONS=''
+  __fvm_generate_completion "${OPTIONS}"
+}
+
+__fvm_installed_nodes() {
+  __fvm_generate_completion "$(fvm_ls) $(__fvm_aliases)"
+}
+
+__fvm_aliases() {
+  declare aliases
+  aliases=""
+  if [ -d "${NVM_DIR}/alias" ]; then
+    aliases="$(command cd "${NVM_DIR}/alias" && command find "${PWD}" -type f | command sed "s:${PWD}/::")"
+  fi
+  echo "${aliases} node stable unstable iojs"
+}
+
+__fvm_alias() {
+  __fvm_generate_completion "$(__fvm_aliases)"
+}
+
+__fvm() {
+  declare previous_word
+  previous_word="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  case "${previous_word}" in
+    use | run | exec | ls | list | uninstall) __fvm_installed_nodes ;;
+    alias | unalias) __fvm_alias ;;
+    *) __fvm_commands ;;
+  esac
+
+  return 0
+}
+
+# complete is a bash builtin, but recent versions of ZSH come with a function
+# called bashcompinit that will create a complete in ZSH. If the user is in
+# ZSH, load and run bashcompinit before calling the complete function.
+if [[ -n ${ZSH_VERSION-} ]]; then
+  # First calling compinit (only if not called yet!)
+  # and then bashcompinit as mentioned by zsh man page.
+  if ! command -v compinit > /dev/null; then
+    autoload -U +X compinit && if [[ ${ZSH_DISABLE_COMPFIX-} = true ]]; then
+      compinit -u
+    else
+      compinit
+    fi
+  fi
+  autoload -U +X bashcompinit && bashcompinit
+fi
+
+complete -o default -F __fvm fvm
