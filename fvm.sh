@@ -449,6 +449,15 @@ fvm_install(){
           && mv "${TMPPATH}/flutter" $VERSION_DIR \
           && rm -fr $TMPPATH
   fvm_err "Now $VERSION is installed"
+
+  EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 0 ]; then
+    # Currently there is no active flutter
+    if [ "_none" = "_$(fvm_current)" ]; then
+      fvm_use_global "${VERSION}"
+    fi
+    EXIT_CODE=$?
+  fi
 }
 
 fvm_get_os() {
@@ -481,9 +490,6 @@ fvm_get_arch() {
   esac
 
   fvm_echo "${FVM_ARCH}"
-}
-
-fvm_use_if_needed() {
 }
 
 fvm_use_global() {
@@ -522,19 +528,6 @@ fvm_use_local() {
   command ln -s "${FVM_VERSION_DIR}" ".flutter"
 }
 
-fvm_match_version() {
-  local PROVIDED_VERSION
-  PROVIDED_VERSION="$1"
-  case "_${PROVIDED_VERSION}" in
-    '_system')
-      fvm_echo 'system'
-    ;;
-    *)
-      fvm_resolve_version "${PROVIDED_VERSION}"
-    ;;
-  esac
-}
-
 fvm_sanitize_path() {
   local SANITIZED_PATH
   SANITIZED_PATH="${1-}"
@@ -555,7 +548,7 @@ fvm_strip_path() {
   command printf %s "${1-}" | command awk -v FVM_DIR="${FVM_DIR}" -v RS=: '
   index($0, FVM_DIR) == 1 {
     path = substr($0, length(FVM_DIR) + 1)
-    if (path ~ "^(/versions/[^/]*)?/[^/]*'"${2-}"'.*$") { next }
+    if (path ~ "^(/versions/[^/]*)?/versions/[^/]*'"${2-}"'.*$") { next }
   }
   { print }' | command paste -s -d: -
 }
@@ -566,21 +559,21 @@ fvm_change_path() {
     fvm_echo "${3-}${2-}"
   # if the initial path doesn’t contain an fvm path, prepend the supplementary
   # path
-  elif ! fvm_echo "${1-}" | fvm_grep -q "${FVM_DIR}/[^/]*${2-}" \
+  elif ! fvm_echo "${1-}" | fvm_grep -q "${FVM_DIR}/versions/[^/]*${2-}" \
     && ! fvm_echo "${1-}" | fvm_grep -q "${FVM_DIR}/versions/[^/]*/[^/]*${2-}"; then
     fvm_echo "${3-}${2-}:${1-}"
   # if the initial path contains BOTH an fvm path (checked for above) and
   # that fvm path is preceded by a system binary path, just prepend the
   # supplementary path instead of replacing it.
   # https://github.com/nvm-sh/nvm/issues/1652#issuecomment-342571223
-  elif fvm_echo "${1-}" | fvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${FVM_DIR}/[^/]*${2-}" \
+  elif fvm_echo "${1-}" | fvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${FVM_DIR}/versions/[^/]*${2-}" \
     || fvm_echo "${1-}" | fvm_grep -Eq "(^|:)(/usr(/local)?)?${2-}:.*${FVM_DIR}/versions/[^/]*/[^/]*${2-}"; then
     fvm_echo "${3-}${2-}:${1-}"
   # use sed to replace the existing fvm path with the supplementary path. This
   # preserves the order of the path.
   else
     fvm_echo "${1-}" | command sed \
-      -e "s#${FVM_DIR}/[^/]*${2-}[^:]*#${3-}${2-}#" \
+      -e "s#${FVM_DIR}/versions/[^/]*${2-}[^:]*#${3-}${2-}#" \
       -e "s#${FVM_DIR}/versions/[^/]*/[^/]*${2-}[^:]*#${3-}${2-}#"
   fi
 }
@@ -798,13 +791,6 @@ fvm() {
 
       fvm_install "${PROVIDED_VERSION}"
       EXIT_CODE=$?
-      if [ $EXIT_CODE -eq 0 ]; then
-        # Currently there is no active flutter
-        if [ "_none" = "_$(fvm_current)" ]; then
-          fvm_use_global "${VERSION}"
-        fi
-        EXIT_CODE=$?
-      fi
       return $EXIT_CODE
     ;;
     "uninstall")
@@ -815,7 +801,7 @@ fvm() {
 
       local PROVIDED_VERSION
       PROVIDED_VERSION="${1-}"
-      VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
+      local VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
 
       if [ "_${VERSION}" = "_system" ]; then
         fvm_err "fvm: Cannot uninstall system flutter version."
@@ -905,26 +891,24 @@ fvm() {
         if [ -n "${FVM_FLUTTER_VERSION-}" ]; then
           PROVIDED_VERSION="${FVM_FLUTTER_VERSION}"
           IS_VERSION_FROM_FLUTTER_VERSION_FILE=1
-          VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
         fi
         unset FVM_FLUTTER_VERSION
-        if [ -z "${VERSION}" ]; then
+        if [ -z "${PROVIDED_VERSION}" ]; then
           fvm_err 'Please see `fvm --help` or https://github.com/fvm-sh/fvm#flutterversion for more information.'
           return 127
         fi
-      else
-        VERSION="$(fvm_match_version "${PROVIDED_VERSION}")"
       fi
 
-      if [ -z "${VERSION}" ]; then
+      if [ -z "${PROVIDED_VERSION}" ]; then
         >&2 fvm --help
         return 127
       fi
+      local VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
 
       if [ "_${VERSION}" = '_system' ]; then
         if fvm_has_system_flutter && fvm deactivate "${FVM_SILENT_ARG-}" >/dev/null 2>&1; then
           if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-            fvm_echo "Now using system version of flutter: $(flutter --version 2>/dev/null)"
+            fvm_echo "Now using system installed flutter."
           fi
           return
         elif [ "${FVM_SILENT:-0}" -ne 1 ]; then
@@ -1006,18 +990,14 @@ fvm() {
         FVM_SILENT="${FVM_SILENT:-0}" fvm_flutter_version
         if [ -n "${FVM_FLUTTER_VERSION}" ]; then
           PROVIDED_VERSION="${FVM_FLUTTER_VERSION}"
-          VERSION=$(fvm_resolve_version "${FVM_FLUTTER_VERSION}") ||:
         fi
         unset FVM_FLUTTER_VERSION
-      elif [ "${PROVIDED_VERSION}" != 'system' ]; then
-        VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")" ||:
-      else
-        VERSION="${PROVIDED_VERSION-}"
       fi
-      if [ -z "${VERSION}" ]; then
+      if [ -z "${PROVIDED_VERSION}" ]; then
         >&2 fvm --help
         return 127
       fi
+      local VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
 
       if [ "_${VERSION}" = '_system' ]; then
         if fvm_has_system_flutter >/dev/null 2>&1; then
@@ -1050,9 +1030,9 @@ fvm() {
       unset -f fvm \
         fvm_releases fvm_current\
         fvm_ls fvm_ls_remote \
-        fvm_use_if_needed fvm_use_global \
+        fvm_use_global fvm_use_local \
         fvm_print_versions fvm_version_from_archive \
-        fvm_resolve_version fvm_flutter_version fvm_match_version \
+        fvm_resolve_version fvm_flutter_version \
         fvm_get_os fvm_get_arch \
         fvm_change_path fvm_strip_path \
         fvm_ensure_version_installed fvm_cache_dir \
@@ -1082,7 +1062,6 @@ fvm() {
 fvm_auto() {
   local FVM_MODE
   FVM_MODE="${1-}"
-  local VERSION
   local FVM_CURRENT
   if [ "_${FVM_MODE}" = '_install' ]; then
     if fvm_flutter_version >/dev/null 2>&1; then
