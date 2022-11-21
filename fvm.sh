@@ -104,12 +104,7 @@ fvm_is_version_installed() {
   if [ -z "${VERSION}" ]; then
     return 1
   fi
-  local FVM_FLUTTER_BINARY
-  FVM_FLUTTER_BINARY='flutter'
-  if [ "_$(fvm_get_os)" = '_windows' ]; then
-    FVM_FLUTTER_BINARY='flutter.bat'
-  fi
-  if [ -x "$(fvm_version_path "${VERSION}" 2>/dev/null)/bin/${FVM_FLUTTER_BINARY}" ]; then
+  if [ -x "$(fvm_version_path "${VERSION}" 2>/dev/null)/bin/flutter" ]; then
     return 0
   fi
   return 1
@@ -259,8 +254,6 @@ fvm_current() {
 fvm_ls_remote() {
   local CHANNEL
   CHANNEL="${1-}"
-  local PATTERN
-  PATTERN="${2-}"
   if [ "@${CHANNEL}@" != "@@" ]; then
     case "${CHANNEL}" in
       stable) CHANNEL="stable" ;;
@@ -269,34 +262,22 @@ fvm_ls_remote() {
       *) CHANNEL="" ;;
     esac
   fi
-  local FVM_OS
-  FVM_OS="$(fvm_get_os)"
-  if [ "_${FVM_OS}" = "_unsupported" ]; then
-    fvm_err "Currently there is no support for this os with flutter."
-    return 1
-  fi
-  if [ "@${PATTERN}@" != "@@" ]; then
-    PATTERN="flutter_${FVM_OS}_${PATTERN}"
-  fi
 
   local FVM_LS_REMOTE_EXIT_CODE
   FVM_LS_REMOTE_EXIT_CODE=0
   
   local FVM_LS_REMOTE_OUTPUT
-  FVM_LS_REMOTE_OUTPUT="$(fvm_releases | fvm_grep "${CHANNEL}" | fvm_grep "${PATTERN}")"
-  FVM_LS_REMOTE_EXIT_CODE=$?
+  FVM_LS_REMOTE_OUTPUT="$(fvm_releases "${2-}" | fvm_grep "${CHANNEL}" \
+    | command awk -F '_' '{print $NF}' \
+    | command awk -F '.zip' '{print $(NF-1)}' \
+  )"
 
-  VERSIONS="$(fvm_version_from_archive "${FVM_LS_REMOTE_OUTPUT}" \
-   | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));printf("@%s", $NF);print "";}' \
-   | command awk -F "@" '{printf("   %-20s", $1);print $2;}' \
-   )"
-
-  if [ -z "${VERSIONS}" ]; then
+  if [ -z "${FVM_LS_REMOTE_OUTPUT}" ]; then
     fvm_echo 'N/A'
     return 3
   fi
   # the `sed` is to remove trailing whitespaces (see "weird behavior" ~25 lines up)
-  fvm_echo "${VERSIONS}" | command sed 's/ *$//g'
+  fvm_echo "${FVM_LS_REMOTE_OUTPUT}" | command sed 's/ *$//g'
   return $FVM_LS_REMOTE_EXIT_CODE
 }
 
@@ -357,28 +338,32 @@ fvm_ls() {
 }
 
 fvm_releases() {
-  local FVM_OS
-  FVM_OS="$(fvm_get_os)"
+  local PATTERN
+  PATTERN="${1-}"
+  local FVM_OS="$(fvm_get_os)"
+  local FVM_ARCH="$(fvm_get_arch)"
   if [ "_${FVM_OS}" = "_unsupported" ]; then
     fvm_err "Currently there is no support for this os with flutter."
     return 1
   fi
   local RELEASES_URL="${FLUTTER_RELEASE_BASE_URL}/releases_${FVM_OS}.json"
-  local LIST="fvm_download -Ss "${RELEASES_URL}" | command grep '\"archive\":' | command grep '"${PATTERN}"'"
-  eval "$LIST | awk -F '\"' '{print \$(NF-1)}'"
+  local RELEASES="$(fvm_download -Ss "${RELEASES_URL}" \
+    | fvm_grep '\"archive\":' \
+    | fvm_grep "_${PATTERN}" \
+    | command awk -F '"' '{print $(NF-1)}' \
+  )"
+  if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ]; then
+    fvm_echo $RELEASES | fvm_grep "arm64"
+  else
+    fvm_echo $RELEASES | fvm_grep -v "arm64"
+  fi
 }
 
-fvm_version_from_archive() {
-  fvm_echo "$(fvm_echo "${1-}" \
-   | fvm_grep -v "N/A" \
-   | command awk -F "/" '{print $NF}' \
-   | command awk -F ".zip" '{print $(NF-1)}' \
-   | command awk -F "_" '{print $NF}' \
-   | command sed '/^ *$/d')"
-}
 
 fvm_print_versions() {
-  fvm_err "${1-}"
+  fvm_echo "${1-}" \
+    | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));printf("@%s", $NF);print "";}' \
+    | command awk -F "@" '{printf("   %-20s", $1);print $2;}'
 }
 
 fvm_install(){
@@ -391,21 +376,14 @@ fvm_install(){
   local VERSION
   VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
 
-  local FVM_OS
-  FVM_OS="$(fvm_get_os)"
-  if [ "_${FVM_OS}" = "_unsupported" ]; then
-    fvm_err "Flutter only supports host OS: macOS, Linux, Windows."
-    return 1
-  fi
-
-  local PATTERN
-  PATTERN="flutter_${FVM_OS}_${VERSION}"
   local ARCHIVE
-  ARCHIVE="$(fvm_releases | grep "${PATTERN}" | awk 'NR==1')"
+  ARCHIVE="$(fvm_releases "${VERSION}" | command awk 'NR==1'
+  )"
 
-  VERSION="$(fvm_version_from_archive "${ARCHIVE}" \
-   | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));print "";}' \
-   )"
+  VERSION="$(fvm_echo "${ARCHIVE}" \
+    | command awk -F '_' '{print $NF}' \
+    | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));print "";}' \
+  )"
 
   if [ "${VERSION}" = 'N/A' ]; then
     local REMOTE_CMD
@@ -475,17 +453,13 @@ fvm_get_os() {
 
 fvm_get_arch() {
   local HOST_ARCH
-  local FVM_OS
-  local EXIT_CODE
-
-  FVM_OS="$(fvm_get_os)"
   HOST_ARCH="$(command uname -m)"
 
   local FVM_ARCH
   case "${HOST_ARCH}" in
-    x86_64 | amd64) FVM_ARCH="x64" ;;
+    x86_64) FVM_ARCH="x64" ;;
     i*86) FVM_ARCH="x86" ;;
-    aarch64) FVM_ARCH="arm64" ;;
+    aarch64 | amd64) FVM_ARCH="arm64" ;;
     *) FVM_ARCH="${HOST_ARCH}" ;;
   esac
 
@@ -730,7 +704,7 @@ fvm() {
       for tool in ${TEST_TOOLS} ; do
         local FVM_TOOL_VERSION
         if fvm_has "${tool}"; then
-          if command ls -l "$(fvm_command_info "${tool}" | command awk '{print $1}')" | command grep -q busybox; then
+          if command ls -l "$(fvm_command_info "${tool}" | command awk '{print $1}')" | fvm_grep -q busybox; then
             FVM_TOOL_VERSION="$(command "${tool}" --help 2>&1 | command head -n 1)"
           else
             FVM_TOOL_VERSION="$(command "${tool}" --version 2>&1 | command head -n 1)"
@@ -1031,7 +1005,7 @@ fvm() {
         fvm_releases fvm_current\
         fvm_ls fvm_ls_remote \
         fvm_use_global fvm_use_local \
-        fvm_print_versions fvm_version_from_archive \
+        fvm_print_versions \
         fvm_resolve_version fvm_flutter_version \
         fvm_get_os fvm_get_arch \
         fvm_change_path fvm_strip_path \
