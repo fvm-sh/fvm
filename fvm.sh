@@ -250,7 +250,7 @@ fvm_current() {
   if [ -z "$FVM_CURRENT_FLUTTER_PATH" ]; then
     fvm_echo 'none'
   elif fvm_tree_contains_path "${FVM_DIR}" "${FVM_CURRENT_FLUTTER_PATH}"; then
-    fvm_echo "${VERSION}"
+    fvm_echo "${FVM_CURRENT_FLUTTER_PATH}" | command awk -F '/' '{print $(NF-2)}'
   else
     fvm_echo 'system'
   fi
@@ -674,26 +674,6 @@ fvm() {
   local VERSION
 
   case $COMMAND in
-    "cache")
-      case "${1-}" in
-        dir) fvm_cache_dir ;;
-        clear)
-          local DIR
-          DIR="$(fvm_cache_dir)"
-          if command rm -rf "${DIR}" && command mkdir -p "${DIR}"; then
-            fvm_echo 'fvm cache cleared.'
-          else
-            fvm_err "Unable to clear fvm cache: ${DIR}"
-            return 1
-          fi
-        ;;
-        *)
-          >&2 fvm --help
-          return 127
-        ;;
-      esac
-    ;;
-
     "debug")
       local OS_VERSION
       fvm_is_zsh && setopt local_options shwordsplit
@@ -837,13 +817,18 @@ fvm() {
       PROVIDED_VERSION="${1-}"
       VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
 
+      if [ "_${VERSION}" = "_system" ]; then
+        fvm_err "fvm: Cannot uninstall system flutter version."
+        return 1
+      fi
+
       if [ "_${VERSION}" = "_$(fvm_current)" ]; then
         fvm_err "fvm: Cannot uninstall currently-active flutter version, ${VERSION} (inferred from ${PROVIDED_VERSION})."
         return 1
       fi
 
       if ! fvm_is_version_installed "${VERSION}"; then
-        fvm_err "${VERSION} version is not installed..."
+        fvm_err "${VERSION} version is not installed yet."
         return
       fi
 
@@ -924,7 +909,7 @@ fvm() {
         fi
         unset FVM_FLUTTER_VERSION
         if [ -z "${VERSION}" ]; then
-          fvm_err 'Please see `fvm --help` or https://github.com/fvm-sh/fvm#flutter.version for more information.'
+          fvm_err 'Please see `fvm --help` or https://github.com/fvm-sh/fvm#flutterversion for more information.'
           return 127
         fi
       else
@@ -1063,7 +1048,7 @@ fvm() {
     "unload")
       fvm deactivate >/dev/null 2>&1
       unset -f fvm \
-        fvm_releases \
+        fvm_releases fvm_current\
         fvm_ls fvm_ls_remote \
         fvm_use_if_needed fvm_use_global \
         fvm_print_versions fvm_version_from_archive \
