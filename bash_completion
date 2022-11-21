@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# bash completion for Flutter Version Manager (NVM)
+# bash completion for Flutter Version Manager (FVM)
 
 if ! command -v fvm &> /dev/null; then
   return

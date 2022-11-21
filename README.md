@@ -24,8 +24,8 @@ Inspired by [nvm](https://github.com/nvm-sh/nvm)
   - [System Version of Flutter](#system-version-of-flutter)
   - [Listing Versions](#listing-versions)
   - [Restoring PATH](#restoring-path)
-  - [Use a mirror of flutter binaries](#use-a-mirror-of-flutter-binaries)
-  - [.fvmrc](#fvmrc)
+  - [Use a mirror of flutter archives](#use-a-mirror-of-flutter-archives)
+  - [flutter.version](#flutter.version)
 - [Environment variables](#environment-variables)
 - [Bash Completion](#bash-completion)
   - [Usage](#usage-1)
@@ -91,7 +91,7 @@ export FVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.fvm" || pr
 
 - You can add `--no-use` to the end of the above script (...`fvm.sh --no-use`) to postpone using `fvm` until you manually [`use`](#usage) it.
 
-- You can customize the install directory, profile, and version using the `FVM_DIR`, `PROFILE` variables.
+- You can customize the install directory, profile, and version using the `FVM_DIR`, `PROFILE`, and `FLUTTER_VERSION` variables.
 Eg: `curl ... | FVM_DIR="path/to/fvm"`. Ensure that the `FVM_DIR` does not contain a trailing slash.
 
 - The installer can use `git`, `curl`, or `wget` to download `fvm`, whichever is available.
@@ -279,7 +279,7 @@ fvm deactivate
 ```
 
 ### Use a mirror of flutter archives
-To use a mirror of the flutter binaries, set `$FLUTTER_STORAGE_BASE_URL`:
+To use a mirror of the flutter archives, set `$FLUTTER_STORAGE_BASE_URL`:
 
 ```sh
 export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
@@ -290,30 +290,28 @@ FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn fvm install 3.3.8
 
 `fvm use` will not, by default, create a "current" symlink. Set `$FVM_SYMLINK_CURRENT` to "true" to enable this behavior, which is sometimes useful for IDEs. Note that using `fvm` in multiple shell tabs with this environment variable enabled can cause race conditions.
 
-### .fvmrc
+### flutter.version
 
-You can create a `.fvmrc` file containing a flutter version number (or any other string that `fvm` understands; see `fvm --help` for details) in the project root directory (or any parent directory).
-Afterwards, `fvm use`, `fvm install`, and `fvm which` will use the version specified in the `.fvmrc` file if no version is supplied on the command line.
+You can create a `flutter.version` file containing a flutter version number (or any other string that `fvm` understands; see `fvm --help` for details) in the project root directory (or any parent directory).
+Afterwards, `fvm use`, `fvm install`, and `fvm which` will use the version specified in the `flutter.version` file if no version is supplied on the command line.
 
 For example, to make fvm default to the 3.3.8 release for the current directory:
 
 ```sh
-$ echo "3.3.8" > .fvmrc
+$ echo "3.3.8" > flutter.version
 ```
-
-[NB these examples assume a POSIX-compliant shell version of `echo`. If you use a Windows `cmd` development environment, eg the `.fvmrc` file is used to configure a remote Linux deployment, then keep in mind the `"`s will be copied leading to an invalid file. Remove them.]
 
 Then when you run fvm:
 
 ```sh
 $ fvm use
-Found '/path/to/project/.fvmrc' with version <3.3.8>
+Found '/path/to/project/flutter.version' with version <3.3.8>
 Now using flutter 3.3.8
 ```
 
-`fvm use` et. al. will traverse directory structure upwards from the current directory looking for the `.fvmrc` file. In other words, running `fvm use` et. al. in any subdirectory of a directory with an `.fvmrc` will result in that `.fvmrc` being utilized.
+`fvm use` et. al. will traverse directory structure upwards from the current directory looking for the `flutter.version` file. In other words, running `fvm use` et. al. in any subdirectory of a directory with an `flutter.version` will result in that `flutter.version` being utilized.
 
-The contents of a `.fvmrc` file **must** be the `<version>` (as described by `fvm --help`) followed by a newline. No trailing spaces are allowed, and the trailing newline is required.
+The contents of a `flutter.version` file **must** be the `<version>` (as described by `fvm --help`) followed by a newline. No trailing spaces are allowed, and the trailing newline is required.
 
 ## Environment variables
 
@@ -322,7 +320,7 @@ fvm exposes the following environment variables:
 - `FVM_DIR` - fvm's installation directory.
 - `FVM_BIN` - where flutter, npm, and global packages for the active version of flutter are installed.
 - `FVM_CD_FLAGS` - used to maintain compatibility with zsh.
-- `FVM_RC_VERSION` - version from .fvmrc file if being used.
+- `FVM_FLUTTER_VERSION` - version from flutter.version file if being used.
 
 Additionally, fvm modifies `PATH`, and, if present, `MANPATH` and `NODE_PATH` when changing versions.
 

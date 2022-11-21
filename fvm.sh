@@ -44,15 +44,6 @@ fvm_has() {
   type "${1-}" >/dev/null 2>&1
 }
 
-fvm_has_non_aliased() {
-  fvm_has "${1-}" && ! fvm_is_alias "${1-}"
-}
-
-fvm_is_alias() {
-  # this is intentionally not "command alias" so it works in zsh.
-  \alias "${1-}" >/dev/null 2>&1
-}
-
 fvm_command_info() {
   local COMMAND
   local INFO
@@ -71,14 +62,6 @@ fvm_command_info() {
     INFO="$(type "${COMMAND}")"
   fi
   fvm_echo "${INFO}"
-}
-
-fvm_has_colors() {
-  local FVM_NUM_COLORS
-  if fvm_has tput; then
-    FVM_NUM_COLORS="$(tput -T "${TERM:-vt100}" colors)"
-  fi
-  [ "${FVM_NUM_COLORS:--1}" -ge 8 ]
 }
 
 fvm_curl_libz_support() {
@@ -117,7 +100,8 @@ fvm_has_system_flutter() {
 }
 
 fvm_is_version_installed() {
-  if [ -z "${1-}" ]; then
+  local VERSION="${1-}"
+  if [ -z "${VERSION}" ]; then
     return 1
   fi
   local FVM_FLUTTER_BINARY
@@ -125,41 +109,11 @@ fvm_is_version_installed() {
   if [ "_$(fvm_get_os)" = '_windows' ]; then
     FVM_FLUTTER_BINARY='flutter.bat'
   fi
-  if [ -x "$(fvm_version_path "$1" 2>/dev/null)/bin/${FVM_FLUTTER_BINARY}" ]; then
+  if [ -x "$(fvm_version_path "${VERSION}" 2>/dev/null)/bin/${FVM_FLUTTER_BINARY}" ]; then
     return 0
   fi
   return 1
 }
-
-# Make zsh glob matching behave same as bash
-# This fixes the "zsh: no matches found" errors
-if [ -z "${FVM_CD_FLAGS-}" ]; then
-  export FVM_CD_FLAGS=''
-fi
-if fvm_is_zsh; then
-  FVM_CD_FLAGS="-q"
-fi
-
-# Auto detect the FVM_DIR when not set
-if [ -z "${FVM_DIR-}" ]; then
-  # shellcheck disable=SC2128
-  if [ -n "${BASH_SOURCE-}" ]; then
-    # shellcheck disable=SC2169,SC3054
-    FVM_SCRIPT_SOURCE="${BASH_SOURCE[0]}"
-  fi
-  FVM_DIR="$(fvm_cd ${FVM_CD_FLAGS} "$(dirname "${FVM_SCRIPT_SOURCE:-$0}")" >/dev/null && \pwd)"
-  export FVM_DIR
-else
-  # https://unix.stackexchange.com/a/198289
-  case $FVM_DIR in
-    *[!/]*/)
-      FVM_DIR="${FVM_DIR%"${FVM_DIR##*[!/]}"}"
-      export FVM_DIR
-      fvm_err "Warning: \$FVM_DIR should not have trailing slashes"
-    ;;
-  esac
-fi
-unset FVM_SCRIPT_SOURCE 2>/dev/null
 
 fvm_tree_contains_path() {
   local tree
@@ -194,34 +148,26 @@ fvm_find_up() {
   fvm_echo "${path_}"
 }
 
-fvm_find_fvmrc() {
-  local dir
-  dir="$(fvm_find_up '.fvmrc')"
-  if [ -e "${dir}/.fvmrc" ]; then
-    fvm_echo "${dir}/.fvmrc"
-  fi
-}
-
-# Obtain fvm version from rc file
-fvm_rc_version() {
-  export FVM_RC_VERSION=''
-  local FVMRC_PATH
-  FVMRC_PATH="$(fvm_find_fvmrc)"
-  if [ ! -e "${FVMRC_PATH}" ]; then
+# Obtain flutter version from flutter.version file
+fvm_flutter_version() {
+  export FVM_FLUTTER_VERSION=''
+  local FLUTTER_VERSION_FILE
+  FLUTTER_VERSION_FILE="$(fvm_find_up 'flutter.version')/flutter.version"
+  if [ ! -e "${FLUTTER_VERSION_FILE}" ]; then
     if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-      fvm_err "No .fvmrc file found"
+      fvm_err "No flutter.version file found"
     fi
     return 1
   fi
-  FVM_RC_VERSION="$(command head -n 1 "${FVMRC_PATH}" | command tr -d '\r')" || command printf ''
-  if [ -z "${FVM_RC_VERSION}" ]; then
+  FVM_FLUTTER_VERSION="$(command head -n 1 "${FLUTTER_VERSION_FILE}" | command tr -d '\r')" || command printf ''
+  if [ -z "${FVM_FLUTTER_VERSION}" ]; then
     if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-      fvm_err "Warning: empty .fvmrc file found at \"${FVMRC_PATH}\""
+      fvm_err "Warning: empty flutter.version file found at \"${FLUTTER_VERSION_FILE}\""
     fi
     return 2
   fi
   if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-    fvm_echo "Found '${FVMRC_PATH}' with version <${FVM_RC_VERSION}>"
+    fvm_echo "Found '${FLUTTER_VERSION_FILE}' with version <${FVM_FLUTTER_VERSION}>"
   fi
 }
 
@@ -257,8 +203,8 @@ fvm_version_path() {
 fvm_ensure_version_installed() {
   local PROVIDED_VERSION
   PROVIDED_VERSION="${1-}"
-  local IS_VERSION_FROM_FVMRC
-  IS_VERSION_FROM_FVMRC="${2-}"
+  local IS_VERSION_FROM_FLUTTER_VERSION_FILE
+  IS_VERSION_FROM_FLUTTER_VERSION_FILE="${2-}"
   if [ "${PROVIDED_VERSION}" = 'system' ]; then
     if fvm_has_system_flutter; then
       return 0
@@ -268,75 +214,82 @@ fvm_ensure_version_installed() {
   fi
   local LOCAL_VERSION
   local EXIT_CODE
-  LOCAL_VERSION="$(fvm_version "${PROVIDED_VERSION}")"
+  LOCAL_VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
   EXIT_CODE="$?"
   local FVM_VERSION_DIR
   if [ "${EXIT_CODE}" != "0" ] || ! fvm_is_version_installed "${LOCAL_VERSION}"; then
     fvm_err "N/A: version \"${PROVIDED_VERSION}\" is not yet installed."
     fvm_err ""
-    if [ "${IS_VERSION_FROM_FVMRC}" != '1' ]; then
+    if [ "${IS_VERSION_FROM_FLUTTER_VERSION_FILE}" != '1' ]; then
       fvm_err "You need to run \`fvm install ${PROVIDED_VERSION}\` to install and use it."
     else
-      fvm_err 'You need to run `fvm install` to install and use the flutter version specified in `.fvmrc`.'
+      fvm_err 'You need to run `fvm install` to install and use the flutter version specified in `flutter.version`.'
     fi
     return 1
   fi
 }
 
 # Expand a version using the version cache
-fvm_version() {
+fvm_resolve_version() {
   local PATTERN
   PATTERN="${1-}"
-  local VERSION
   # The default version is the current one
   if [ -z "${PATTERN}" ]; then
     PATTERN='current'
   fi
-
   if [ "${PATTERN}" = "current" ]; then
-    fvm_ls_current
+    fvm_current
     return $?
   fi
-  VERSION="$(fvm_ls "${PATTERN}" | command tail -1)"
-  if [ -z "${VERSION}" ] || [ "_${VERSION}" = "_N/A" ]; then
-    fvm_echo "N/A"
-    return 3
-  fi
-  fvm_echo "${VERSION}"
+  fvm_echo "${PATTERN}"
 }
 
-fvm_remote_version() {
-  local PATTERN
-  PATTERN="${1-}"
-  local VERSION
-  VERSION="$(fvm_remote_versions "${PATTERN}" | command tail -1)"
-  if [ -n "${FVM_VERSION_ONLY-}" ]; then
-    command awk 'BEGIN {
-      n = split(ARGV[1], a);
-      print a[1]
-    }' "${VERSION}"
-  else
+fvm_current() {
+  local FVM_CURRENT_FLUTTER_PATH
+  FVM_CURRENT_FLUTTER_PATH="$(command which flutter 2>/dev/null)"
+  if [ -z "$FVM_CURRENT_FLUTTER_PATH" ]; then
+    fvm_echo 'none'
+  elif fvm_tree_contains_path "${FVM_DIR}" "${FVM_CURRENT_FLUTTER_PATH}"; then
     fvm_echo "${VERSION}"
-  fi
-  if [ "${VERSION}" = 'N/A' ]; then
-    return 3
+  else
+    fvm_echo 'system'
   fi
 }
 
-fvm_remote_versions() {
+fvm_ls_remote() {
+  local CHANNEL
+  CHANNEL="${1-}"
   local PATTERN
-  PATTERN="${1-}"
+  PATTERN="${2-}"
+  if [ "@${CHANNEL}@" != "@@" ]; then
+    case "${CHANNEL}" in
+      stable) CHANNEL="stable" ;;
+      beta) CHANNEL="beta" ;;
+      dev) CHANNEL="dev" ;;
+      *) CHANNEL="" ;;
+    esac
+  fi
+  local FVM_OS
+  FVM_OS="$(fvm_get_os)"
+  if [ "_${FVM_OS}" = "_unsupported" ]; then
+    fvm_err "Currently there is no support for this os with flutter."
+    return 1
+  fi
+  if [ "@${PATTERN}@" != "@@" ]; then
+    PATTERN="flutter_${FVM_OS}_${PATTERN}"
+  fi
 
   local FVM_LS_REMOTE_EXIT_CODE
   FVM_LS_REMOTE_EXIT_CODE=0
   
   local FVM_LS_REMOTE_OUTPUT
-  # extra space is needed here to avoid weird behavior when `fvm_ls_remote` ends in a `*`
-  FVM_LS_REMOTE_OUTPUT="$(fvm_ls_remote "version") " &&:
+  FVM_LS_REMOTE_OUTPUT="$(fvm_releases | fvm_grep "${CHANNEL}" | fvm_grep "${PATTERN}")"
   FVM_LS_REMOTE_EXIT_CODE=$?
 
-  # the `sed` removes both blank lines, and only-whitespace lines (see "weird behavior" ~19 lines up)
-  VERSIONS="$(fvm_echo "${FVM_LS_REMOTE_OUTPUT}" | fvm_grep -v "N/A" | command sed '/^ *$/d')"
+  VERSIONS="$(fvm_version_from_archive "${FVM_LS_REMOTE_OUTPUT}" \
+   | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));printf("@%s", $NF);print "";}' \
+   | command awk -F "@" '{printf("   %-20s", $1);print $2;}' \
+   )"
 
   if [ -z "${VERSIONS}" ]; then
     fvm_echo 'N/A'
@@ -347,25 +300,13 @@ fvm_remote_versions() {
   return $FVM_LS_REMOTE_EXIT_CODE
 }
 
-
-fvm_ls_current() {
-  local FVM_LS_CURRENT_FLUTTER_PATH
-  if ! FVM_LS_CURRENT_FLUTTER_PATH="$(command which flutter 2>/dev/null)"; then
-    fvm_echo 'none'
-  elif fvm_tree_contains_path "${FVM_DIR}" "${FVM_LS_CURRENT_FLUTTER_PATH}"; then
-    fvm_echo "${VERSION}"
-  else
-    fvm_echo 'system'
-  fi
-}
-
 fvm_ls() {
   local PATTERN
   PATTERN="${1-}"
   local VERSIONS
   VERSIONS=''
   if [ "${PATTERN}" = 'current' ]; then
-    fvm_ls_current
+    fvm_current
     return
   fi
   if [ "${PATTERN}" = 'N/A' ]; then
@@ -383,12 +324,12 @@ fvm_ls() {
   fi
 
   if [ -z "${PATTERN}" ]; then
-    PATTERN='*'
+    PATTERN=''
   fi
   local SEARCH_DIR
   SEARCH_DIR="${FVM_DIR}/versions"
   if [ -n "${SEARCH_DIR}" ]; then
-    VERSIONS="$(command find "${SEARCH_DIR}"/* -name . -o -type d -prune -o -path "${PATTERN}" \
+    VERSIONS="$(command find "${SEARCH_DIR}"/* -type d -prune -name "${PATTERN}*" \
       | command sed -e "
           s#^${FVM_DIR}/##;
           \\#^versions\$# d;
@@ -415,7 +356,7 @@ fvm_ls() {
   fvm_echo "${VERSIONS}"
 }
 
-fvm_ls_remote() {
+fvm_releases() {
   local FVM_OS
   FVM_OS="$(fvm_get_os)"
   if [ "_${FVM_OS}" = "_unsupported" ]; then
@@ -423,16 +364,17 @@ fvm_ls_remote() {
     return 1
   fi
   local RELEASES_URL="${FLUTTER_RELEASE_BASE_URL}/releases_${FVM_OS}.json"
-  local PATTERN="${1-}"
-  if [ -z "${PATTERN}" ] || [ "${PATTERN}" != 'archive' ];then
-    PATTERN='version'
-  fi
-  local LIST="fvm_download -Ss "${RELEASES_URL}" | command grep '"${PATTERN}"'"
-  if [ "${PATTERN}" = "version" ];then
-    eval "$LIST | awk -F ': ' '{print \$2}' | awk -F '\"' '{print \$2}' | uniq"
-  else 
-    eval "$LIST | awk -F ': ' '{print \$2}' | awk -F '\"' '{print \$2}'"
-  fi
+  local LIST="fvm_download -Ss "${RELEASES_URL}" | command grep '\"archive\":' | command grep '"${PATTERN}"'"
+  eval "$LIST | awk -F '\"' '{print \$(NF-1)}'"
+}
+
+fvm_version_from_archive() {
+  fvm_echo "$(fvm_echo "${1-}" \
+   | fvm_grep -v "N/A" \
+   | command awk -F "/" '{print $NF}' \
+   | command awk -F ".zip" '{print $(NF-1)}' \
+   | command awk -F "_" '{print $NF}' \
+   | command sed '/^ *$/d')"
 }
 
 fvm_print_versions() {
@@ -440,20 +382,55 @@ fvm_print_versions() {
 }
 
 fvm_install(){
-  local VERSION="$1"
-  if [[ -z ${VERSION}  ]];then
+  local PROVIDED_VERSION="${1-}"
+  if [[ -z ${PROVIDED_VERSION}  ]];then
     fvm_err "Error: \$version is required !!" 
     exit 1
   fi
-  local ARCHIVE=`fvm_ls_remote "archive" | grep "$VERSION" | awk 'NR==1'`
-  fvm_err "Version ${VERSION} archive ${ARCHIVE}"
+
+  local VERSION
+  VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
+
+  local FVM_OS
+  FVM_OS="$(fvm_get_os)"
+  if [ "_${FVM_OS}" = "_unsupported" ]; then
+    fvm_err "Flutter only supports host OS: macOS, Linux, Windows."
+    return 1
+  fi
+
+  local PATTERN
+  PATTERN="flutter_${FVM_OS}_${VERSION}"
+  local ARCHIVE
+  ARCHIVE="$(fvm_releases | grep "${PATTERN}" | awk 'NR==1')"
+
+  VERSION="$(fvm_version_from_archive "${ARCHIVE}" \
+   | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));print "";}' \
+   )"
+
+  if [ "${VERSION}" = 'N/A' ]; then
+    local REMOTE_CMD
+    REMOTE_CMD='fvm ls-remote'
+    fvm_err "Version '${PROVIDED_VERSION}' not found - try \`${REMOTE_CMD}\` to browse available versions."
+    return 3
+  fi
+  if [ "$VERSION" != "$PROVIDED_VERSION" ]; then
+    fvm_err "Resolve version $PROVIDED_VERSION to $VERSION"
+  fi
+
+  local EXIT_CODE
+  EXIT_CODE=0
+
+  if fvm_is_version_installed "${VERSION}"; then
+    fvm_err "${VERSION} is already installed."
+    EXIT_CODE=$?
+    return $EXIT_CODE
+  fi
   if [[ -z ${ARCHIVE}  ]];then
     fvm_err "Error: no flutter version matched $VERSION !!"
-    exit 1
+    return 1
   fi
   local CACHE_DIR="$(fvm_cache_dir)"
   local ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE}"
-  local VERSION_DIR="$(fvm_version_path "${VERSION}")"
   if fvm_is_version_installed "${VERSION}";then
     fvm_err "$VERSION is already installed."
     return
@@ -464,13 +441,14 @@ fvm_install(){
     local ARCHIVE_URL="${FLUTTER_RELEASE_BASE_URL}/${ARCHIVE}"
     fvm_download --progress-bar -o $ARCHIVE_PATH $ARCHIVE_URL
   else
-    fvm_err "Archive ${ARCHIVE} is already downloaded in ${ARCHIVE_PATH}"
+    fvm_err "$VERSION is already downloaded."
   fi
   local TMPPATH="${CACHE_DIR}/tmp"
-  command unzip -oq $ARCHIVE_PATH -d $TMPPATH
-  command mv "${TMPPATH}/flutter" $VERSION_DIR
-  command rm -fr $TMPPATH
-  fvm_err "$VERSION is installed to $VERSION_DIR"
+  local VERSION_DIR="$(fvm_version_path "${VERSION}")"
+  command unzip -oq $ARCHIVE_PATH -d $TMPPATH \
+          && mv "${TMPPATH}/flutter" $VERSION_DIR \
+          && rm -fr $TMPPATH
+  fvm_err "Now $VERSION is installed"
 }
 
 fvm_get_os() {
@@ -502,24 +480,46 @@ fvm_get_arch() {
     *) FVM_ARCH="${HOST_ARCH}" ;;
   esac
 
-  # If running a 64bit ARM kernel but a 32bit ARM userland,
-  # change ARCH to 32bit ARM (armv7l) if /sbin/init is 32bit executable
-  local L
-  if [ "$(uname)" = "Linux" ] && [ "${FVM_ARCH}" = arm64 ] &&
-    L="$(command ls -dl /sbin/init 2>/dev/null)" &&
-    [ "$(od -An -t x1 -j 4 -N 1 "${L#*-> }")" = ' 01' ]; then
-    FVM_ARCH=armv7l
-    HOST_ARCH=armv7l
-  fi
-
   fvm_echo "${FVM_ARCH}"
 }
 
 fvm_use_if_needed() {
-  if [ "_${1-}" = "_$(fvm_ls_current)" ]; then
-    return
+}
+
+fvm_use_global() {
+  local VERSION
+  VERSION="${1-}"
+
+  local FVM_VERSION_DIR
+  FVM_VERSION_DIR="$(fvm_version_path "${VERSION}")"
+
+  # Change current version
+  PATH="$(fvm_change_path "${PATH}" "/bin" "${FVM_VERSION_DIR}")"
+  if fvm_has manpath; then
+    if [ -z "${MANPATH-}" ]; then
+      local MANPATH
+      MANPATH=$(manpath)
+    fi
+    # Change current version
+    MANPATH="$(fvm_change_path "${MANPATH}" "/share/man" "${FVM_VERSION_DIR}")"
+    export MANPATH
   fi
-  fvm use "$@"
+  export PATH
+  hash -r
+  export FVM_BIN="${FVM_VERSION_DIR}/bin"
+  if [ "${FVM_SYMLINK_CURRENT-}" = true ]; then
+    command rm -f "${FVM_DIR}/current" && ln -s "${FVM_VERSION_DIR}" "${FVM_DIR}/current"
+  fi
+}
+
+fvm_use_local() {
+
+  local VERSION
+  VERSION="${1-}"
+
+  local FVM_VERSION_DIR
+  FVM_VERSION_DIR="$(fvm_version_path "${VERSION}")"
+  command ln -s "${FVM_VERSION_DIR}" ".flutter"
 }
 
 fvm_match_version() {
@@ -530,7 +530,7 @@ fvm_match_version() {
       fvm_echo 'system'
     ;;
     *)
-      fvm_version "${PROVIDED_VERSION}"
+      fvm_resolve_version "${PROVIDED_VERSION}"
     ;;
   esac
 }
@@ -641,9 +641,9 @@ fvm() {
         fvm_echo 'Usage:'
         fvm_echo '  fvm --help                                  Show this message'
         fvm_echo '  fvm --version                               Print out the installed version of fvm'
-        fvm_echo '  fvm install [<version>]                     Download and install a <version>. Uses .fvmrc if available and version is omitted.'
+        fvm_echo '  fvm install [<version>]                     Download and install a <version>. Uses flutter.version if available and version is omitted.'
         fvm_echo '  fvm uninstall <version>                     Uninstall a version'
-        fvm_echo '  fvm use [<version>]                         Modify PATH to use <version>. Uses .fvmrc if available and version is omitted.'
+        fvm_echo '  fvm use [<version>]                         Modify PATH to use <version>. Uses flutter.version if available and version is omitted.'
         fvm_echo '   The following optional arguments, if provided, must appear directly after `fvm use`:'
         fvm_echo '    --silent                                  Silences stdout/stderr output'
         fvm_echo '  fvm current                                 Display currently activated version of Flutter'
@@ -652,14 +652,11 @@ fvm() {
         fvm_echo '  fvm deactivate                              Undo effects of `fvm` on current shell'
         fvm_echo '    --silent                                  Silences stdout/stderr output'
         fvm_echo '  fvm unload                                  Unload `fvm` from shell'
-        fvm_echo '  fvm which [current | <version>]             Display path to installed flutter version. Uses .fvmrc if available and version is omitted.'
+        fvm_echo '  fvm which [current | <version>]             Display path to installed flutter version. Uses flutter.version if available and version is omitted.'
         fvm_echo '    --silent                                  Silences stdout/stderr output when a version is omitted'
-        fvm_echo '  fvm cache dir                               Display path to the cache directory for fvm'
-        fvm_echo '  fvm cache clear                             Empty cache directory for fvm'
-        fvm_echo '                                               Initial colors are:'
         fvm_echo 'Example:'
         fvm_echo '  fvm install 2.0.0                     Install a specific version number'
-        fvm_echo '  fvm use 2.0                           Use the latest available 2.0.x release'
+        fvm_echo '  fvm use 2.0.0                         Use 2.0.0 release'
         fvm_echo
         fvm_echo 'Note:'
         fvm_echo '  to remove, delete, or uninstall fvm - just remove the `$FVM_DIR` folder (usually `~/.fvm`)'
@@ -675,7 +672,6 @@ fvm() {
 
   # initialize local variables
   local VERSION
-  local ADDITIONAL_PARAMETERS
 
   case $COMMAND in
     "cache")
@@ -783,16 +779,11 @@ fvm() {
     ;;
 
     "install" | "i")
-      local FVM_OS
-      FVM_OS="$(fvm_get_os)"
 
       if ! fvm_has "curl" && ! fvm_has "wget"; then
         fvm_err 'fvm needs curl or wget to proceed.'
         return 1
       fi
-
-      local noprogress
-      noprogress=0
 
       while [ $# -ne 0 ]; do
         case "$1" in
@@ -800,69 +791,38 @@ fvm() {
             fvm_err 'arguments with `---` are not supported - this is likely a typo'
             return 55;
           ;;
-          --no-progress)
-            noprogress=1
-            shift
-          ;;
           *)
             break # stop parsing args
           ;;
         esac
       done
 
-      local provided_version
-      provided_version="${1-}"
+      local PROVIDED_VERSION
+      PROVIDED_VERSION="${1-}"
 
-      if [ -z "${provided_version}" ]; then
-        fvm_rc_version
-        if [ $version_not_provided -eq 1 ] && [ -z "${FVM_RC_VERSION}" ]; then
-          unset FVM_RC_VERSION
+      if [ -z "${PROVIDED_VERSION}" ]; then
+        fvm_flutter_version
+        if [ -z "${FVM_FLUTTER_VERSION}" ]; then
+          unset FVM_FLUTTER_VERSION
           >&2 fvm --help
           return 127
         fi
-        provided_version="${FVM_RC_VERSION}"
-        unset FVM_RC_VERSION
+        PROVIDED_VERSION="${FVM_FLUTTER_VERSION}"
+        unset FVM_FLUTTER_VERSION
       elif [ $# -gt 0 ]; then
         shift
       fi
 
-      VERSION="$(FVM_VERSION_ONLY=true fvm_remote_version "${provided_version}")"
-
-      if [ "${VERSION}" = 'N/A' ]; then
-        local REMOTE_CMD
-        REMOTE_CMD='fvm ls-remote'
-        fvm_err "Version '${provided_version}' not found - try \`${REMOTE_CMD}\` to browse available versions."
-        return 3
-      fi
-
-      ADDITIONAL_PARAMETERS=''
-
-      while [ $# -ne 0 ]; do
-        case "$1" in
-          *)
-            ADDITIONAL_PARAMETERS="${ADDITIONAL_PARAMETERS} $1"
-          ;;
-        esac
-        shift
-      done
-
       local EXIT_CODE
       EXIT_CODE=0
 
-      if fvm_is_version_installed "${VERSION}"; then
-        fvm_err "${VERSION} is already installed."
-        fvm use "${VERSION}"
-        EXIT_CODE=$?
-        return $EXIT_CODE
-      fi
-
-      if [ "_${FVM_OS}" = "_unsupported" ]; then
-        fvm_err "Currently, there is no support for other system"
-      fi
-
-      fvm_install "${provided_version}"
+      fvm_install "${PROVIDED_VERSION}"
       EXIT_CODE=$?
-      if [ $EXIT_CODE -eq 0 ] && fvm_use_if_needed "${VERSION}"; then
+      if [ $EXIT_CODE -eq 0 ]; then
+        # Currently there is no active flutter
+        if [ "_none" = "_$(fvm_current)" ]; then
+          fvm_use_global "${VERSION}"
+        fi
         EXIT_CODE=$?
       fi
       return $EXIT_CODE
@@ -873,17 +833,12 @@ fvm() {
         return 127
       fi
 
-      local PATTERN
-      PATTERN="${1-}"
-      case "${PATTERN-}" in
-        --) ;;
-        *)
-          VERSION="$(fvm_version "${PATTERN}")"
-        ;;
-      esac
+      local PROVIDED_VERSION
+      PROVIDED_VERSION="${1-}"
+      VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
 
-      if [ "_${VERSION}" = "_$(fvm_ls_current)" ]; then
-        fvm_err "fvm: Cannot uninstall currently-active flutter version, ${VERSION} (inferred from ${PATTERN})."
+      if [ "_${VERSION}" = "_$(fvm_current)" ]; then
+        fvm_err "fvm: Cannot uninstall currently-active flutter version, ${VERSION} (inferred from ${PROVIDED_VERSION})."
         return 1
       fi
 
@@ -892,19 +847,13 @@ fvm() {
         return
       fi
 
-      local FVM_SUCCESS_MSG
-      FVM_SUCCESS_MSG="Uninstalled flutter ${VERSION}"
-
       local VERSION_PATH
       VERSION_PATH="$(fvm_version_path "${VERSION}")"
 
       # Delete all files related to target version.
-      local CACHE_DIR
-      CACHE_DIR="$(fvm_cache_dir)"
       command rm -rf \
-        "${CACHE_DIR}/${VERSION}.zip" \
         "${VERSION_PATH}" 2>/dev/null
-      fvm_echo "${FVM_SUCCESS_MSG}"
+      fvm_echo "Uninstalled flutter ${VERSION}"
     ;;
     "deactivate")
       local FVM_SILENT
@@ -948,8 +897,8 @@ fvm() {
       local PROVIDED_VERSION
       local FVM_SILENT
       local FVM_SILENT_ARG
-      local IS_VERSION_FROM_FVMRC
-      IS_VERSION_FROM_FVMRC=0
+      local IS_VERSION_FROM_FLUTTER_VERSION_FILE
+      IS_VERSION_FROM_FLUTTER_VERSION_FILE=0
 
       while [ $# -ne 0 ]; do
         case "$1" in
@@ -967,15 +916,15 @@ fvm() {
       done
 
       if [ -z "${PROVIDED_VERSION-}" ]; then
-        FVM_SILENT="${FVM_SILENT:-0}" fvm_rc_version
-        if [ -n "${FVM_RC_VERSION-}" ]; then
-          PROVIDED_VERSION="${FVM_RC_VERSION}"
-          IS_VERSION_FROM_FVMRC=1
-          VERSION="$(fvm_version "${PROVIDED_VERSION}")"
+        FVM_SILENT="${FVM_SILENT:-0}" fvm_flutter_version
+        if [ -n "${FVM_FLUTTER_VERSION-}" ]; then
+          PROVIDED_VERSION="${FVM_FLUTTER_VERSION}"
+          IS_VERSION_FROM_FLUTTER_VERSION_FILE=1
+          VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")"
         fi
-        unset FVM_RC_VERSION
+        unset FVM_FLUTTER_VERSION
         if [ -z "${VERSION}" ]; then
-          fvm_err 'Please see `fvm --help` or https://github.com/fvm-sh/fvm#fvmrc for more information.'
+          fvm_err 'Please see `fvm --help` or https://github.com/fvm-sh/fvm#flutter.version for more information.'
           return 127
         fi
       else
@@ -993,8 +942,6 @@ fvm() {
             fvm_echo "Now using system version of flutter: $(flutter --version 2>/dev/null)"
           fi
           return
-        elif fvm deactivate "${FVM_SILENT_ARG-}" >/dev/null 2>&1; then
-          return
         elif [ "${FVM_SILENT:-0}" -ne 1 ]; then
           fvm_err 'System version of flutter not found.'
         fi
@@ -1002,35 +949,15 @@ fvm() {
       fi
       if [ "${VERSION}" = 'N/A' ]; then
         if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-          fvm_ensure_version_installed "${PROVIDED_VERSION}" "${IS_VERSION_FROM_FVMRC}"
+          fvm_ensure_version_installed "${PROVIDED_VERSION}" "${IS_VERSION_FROM_FLUTTER_VERSION_FILE}"
         fi
         return 3
       # This fvm_ensure_version_installed call can be a performance bottleneck
       # on shell startup. Perhaps we can optimize it away or make it faster.
-      elif ! fvm_ensure_version_installed "${VERSION}" "${IS_VERSION_FROM_FVMRC}"; then
+      elif ! fvm_ensure_version_installed "${VERSION}" "${IS_VERSION_FROM_FLUTTER_VERSION_FILE}"; then
         return $?
       fi
-
-      local FVM_VERSION_DIR
-      FVM_VERSION_DIR="$(fvm_version_path "${VERSION}")"
-
-      # Change current version
-      PATH="$(fvm_change_path "${PATH}" "/bin" "${FVM_VERSION_DIR}")"
-      if fvm_has manpath; then
-        if [ -z "${MANPATH-}" ]; then
-          local MANPATH
-          MANPATH=$(manpath)
-        fi
-        # Change current version
-        MANPATH="$(fvm_change_path "${MANPATH}" "/share/man" "${FVM_VERSION_DIR}")"
-        export MANPATH
-      fi
-      export PATH
-      hash -r
-      export FVM_BIN="${FVM_VERSION_DIR}/bin"
-      if [ "${FVM_SYMLINK_CURRENT-}" = true ]; then
-        command rm -f "${FVM_DIR}/current" && ln -s "${FVM_VERSION_DIR}" "${FVM_DIR}/current"
-      fi
+      fvm_use_global "${VERSION}" "${IS_VERSION_FROM_FLUTTER_VERSION_FILE}"
       local FVM_USE_OUTPUT
       FVM_USE_OUTPUT=''
       if [ "${FVM_SILENT:-0}" -ne 1 ]; then
@@ -1064,26 +991,10 @@ fvm() {
       return $FVM_LS_EXIT_CODE
     ;;
     "ls-remote" | "list-remote")
-      local PATTERN
-
-      while [ $# -gt 0 ]; do
-        case "${1-}" in
-          --*)
-            fvm_err "Unsupported option \"${1}\"."
-            return 55
-          ;;
-          *)
-            if [ -z "${PATTERN-}" ]; then
-              PATTERN="${1-}"
-            fi
-          ;;
-        esac
-        shift
-      done
 
       local FVM_OUTPUT
       local EXIT_CODE
-      FVM_OUTPUT="$(fvm_remote_versions "${PATTERN}" &&:)"
+      FVM_OUTPUT="$(fvm_ls_remote "$@")"
       EXIT_CODE=$?
       if [ -n "${FVM_OUTPUT}" ]; then
         fvm_print_versions "${FVM_OUTPUT}"
@@ -1093,30 +1004,30 @@ fvm() {
       return 3
     ;;
     "current")
-      fvm_version current
+      fvm_resolve_version current
     ;;
     "which")
       local FVM_SILENT
-      local provided_version
+      local PROVIDED_VERSION
       while [ $# -ne 0 ]; do
         case "${1}" in
           --silent) FVM_SILENT=1 ;;
           --) ;;
-          *) provided_version="${1-}" ;;
+          *) PROVIDED_VERSION="${1-}" ;;
         esac
         shift
       done
-      if [ -z "${provided_version-}" ]; then
-        FVM_SILENT="${FVM_SILENT:-0}" fvm_rc_version
-        if [ -n "${FVM_RC_VERSION}" ]; then
-          provided_version="${FVM_RC_VERSION}"
-          VERSION=$(fvm_version "${FVM_RC_VERSION}") ||:
+      if [ -z "${PROVIDED_VERSION-}" ]; then
+        FVM_SILENT="${FVM_SILENT:-0}" fvm_flutter_version
+        if [ -n "${FVM_FLUTTER_VERSION}" ]; then
+          PROVIDED_VERSION="${FVM_FLUTTER_VERSION}"
+          VERSION=$(fvm_resolve_version "${FVM_FLUTTER_VERSION}") ||:
         fi
-        unset FVM_RC_VERSION
-      elif [ "${provided_version}" != 'system' ]; then
-        VERSION="$(fvm_version "${provided_version}")" ||:
+        unset FVM_FLUTTER_VERSION
+      elif [ "${PROVIDED_VERSION}" != 'system' ]; then
+        VERSION="$(fvm_resolve_version "${PROVIDED_VERSION}")" ||:
       else
-        VERSION="${provided_version-}"
+        VERSION="${PROVIDED_VERSION-}"
       fi
       if [ -z "${VERSION}" ]; then
         >&2 fvm --help
@@ -1137,7 +1048,7 @@ fvm() {
         return 127
       fi
 
-      fvm_ensure_version_installed "${provided_version}"
+      fvm_ensure_version_installed "${PROVIDED_VERSION}"
       EXIT_CODE=$?
       if [ "${EXIT_CODE}" != "0" ]; then
         return $EXIT_CODE
@@ -1146,26 +1057,22 @@ fvm() {
       FVM_VERSION_DIR="$(fvm_version_path "${VERSION}")"
       fvm_echo "${FVM_VERSION_DIR}/bin/flutter"
     ;;
-    "clear-cache")
-      command rm -f "${FVM_DIR}/v*" 2>/dev/null
-      fvm_echo 'fvm cache cleared.'
-    ;;
     "--version" | "-v")
       fvm_echo '0.0.1'
     ;;
     "unload")
       fvm deactivate >/dev/null 2>&1
       unset -f fvm \
-        fvm_ls_remote \
-        fvm_ls fvm_remote_version fvm_remote_versions \
-        fvm_use_if_needed \
-        fvm_print_versions \
-        fvm_version fvm_rc_version fvm_match_version \
+        fvm_releases \
+        fvm_ls fvm_ls_remote \
+        fvm_use_if_needed fvm_use_global \
+        fvm_print_versions fvm_version_from_archive \
+        fvm_resolve_version fvm_flutter_version fvm_match_version \
         fvm_get_os fvm_get_arch \
         fvm_change_path fvm_strip_path \
         fvm_ensure_version_installed fvm_cache_dir \
         fvm_version_path \
-        fvm_find_fvmrc fvm_find_up fvm_tree_contains_path \
+        fvm_find_up fvm_tree_contains_path \
         fvm_version_greater_than_or_equal_to \
         fvm_has_system_flutter \
         fvm_download fvm_has \
@@ -1173,13 +1080,11 @@ fvm() {
         fvm_auto \
         fvm_echo fvm_err fvm_grep fvm_cd \
         fvm_is_version_installed \
-        fvm_sanitize_path fvm_has_colors fvm_process_parameters \
+        fvm_sanitize_path fvm_process_parameters \
         fvm_curl_libz_support fvm_command_info fvm_is_zsh fvm_stdout_is_terminal \
         >/dev/null 2>&1
-      unset FVM_RC_VERSION FVM_DIR \
+      unset FVM_FLUTTER_VERSION FVM_DIR \
         FVM_CD_FLAGS FVM_BIN \
-        FVM_COLORS INSTALLED_COLOR SYSTEM_COLOR \
-        CURRENT_COLOR NOT_INSTALLED_COLOR \
         >/dev/null 2>&1
     ;;
     *)
@@ -1195,13 +1100,13 @@ fvm_auto() {
   local VERSION
   local FVM_CURRENT
   if [ "_${FVM_MODE}" = '_install' ]; then
-    if fvm_rc_version >/dev/null 2>&1; then
+    if fvm_flutter_version >/dev/null 2>&1; then
       fvm install >/dev/null
     fi
   elif [ "_$FVM_MODE" = '_use' ]; then
-    FVM_CURRENT="$(fvm_ls_current)"
+    FVM_CURRENT="$(fvm_current)"
     if [ "_${FVM_CURRENT}" = '_none' ] || [ "_${FVM_CURRENT}" = '_system' ]; then
-      if fvm_rc_version >/dev/null 2>&1; then
+      if fvm_flutter_version >/dev/null 2>&1; then
         fvm use --silent >/dev/null
       fi
     else
@@ -1225,6 +1130,36 @@ fvm_process_parameters() {
   done
   fvm_auto "${FVM_AUTO_MODE}"
 }
+
+# Make zsh glob matching behave same as bash
+# This fixes the "zsh: no matches found" errors
+if [ -z "${FVM_CD_FLAGS-}" ]; then
+  export FVM_CD_FLAGS=''
+fi
+if fvm_is_zsh; then
+  FVM_CD_FLAGS="-q"
+fi
+
+# Auto detect the FVM_DIR when not set
+if [ -z "${FVM_DIR-}" ]; then
+  # shellcheck disable=SC2128
+  if [ -n "${BASH_SOURCE-}" ]; then
+    # shellcheck disable=SC2169,SC3054
+    FVM_SCRIPT_SOURCE="${BASH_SOURCE[0]}"
+  fi
+  FVM_DIR="$(fvm_cd ${FVM_CD_FLAGS} "$(dirname "${FVM_SCRIPT_SOURCE:-$0}")" >/dev/null && \pwd)"
+  export FVM_DIR
+else
+  # https://unix.stackexchange.com/a/198289
+  case $FVM_DIR in
+    *[!/]*/)
+      FVM_DIR="${FVM_DIR%"${FVM_DIR##*[!/]}"}"
+      export FVM_DIR
+      fvm_err "Warning: \$FVM_DIR should not have trailing slashes"
+    ;;
+  esac
+fi
+unset FVM_SCRIPT_SOURCE 2>/dev/null
 
 fvm_process_parameters "$@"
 
