@@ -243,12 +243,6 @@ And then in any new shell just use the installed version:
 fvm use 3.3.8
 ```
 
-You can also get the path to the executable to where it was installed:
-
-```sh
-fvm which 3.3.8
-```
-
 ### System Version of Flutter
 
 If you want to use the system-installed version of flutter, you can use the special alias "system":
@@ -288,12 +282,10 @@ fvm install 3.3.8
 FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn fvm install 3.3.8
 ```
 
-`fvm use` will not, by default, create a "current" symlink. Set `$FVM_SYMLINK_CURRENT` to "true" to enable this behavior, which is sometimes useful for IDEs. Note that using `fvm` in multiple shell tabs with this environment variable enabled can cause race conditions.
-
 ### flutter.version
 
 You can create a `flutter.version` file containing a flutter version number (or any other string that `fvm` understands; see `fvm --help` for details) in the project root directory (or any parent directory).
-Afterwards, `fvm use`, `fvm install`, and `fvm which` will use the version specified in the `flutter.version` file if no version is supplied on the command line.
+Afterwards, `fvm use` and `fvm install` will use the version specified in the `flutter.version` file if no version is supplied on the command line.
 
 For example, to make fvm default to the 3.3.8 release for the current directory:
 
@@ -305,13 +297,11 @@ Then when you run fvm:
 
 ```sh
 $ fvm use
-Found '/path/to/project/flutter.version' with version <3.3.8>
+Found 'flutter.version' with version <3.3.8>
 Now using flutter 3.3.8
 ```
 
-`fvm use` et. al. will traverse directory structure upwards from the current directory looking for the `flutter.version` file. In other words, running `fvm use` et. al. in any subdirectory of a directory with an `flutter.version` will result in that `flutter.version` being utilized.
-
-The contents of a `flutter.version` file **must** be the `<version>` (as described by `fvm --help`) followed by a newline. No trailing spaces are allowed, and the trailing newline is required.
+The contents of a `flutter.version` file **must** be the `<version>` (as described by `fvm --help`) . No trailing spaces are allowed.
 
 ## Environment variables
 
