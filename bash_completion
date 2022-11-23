@@ -21,10 +21,8 @@ __fvm_commands() {
   current_word="${COMP_WORDS[COMP_CWORD]}"
 
   COMMANDS='
-    help install uninstall use
-    current list ls list-remote ls-remote
-    cache deactivate unload
-    version version-remote which'
+    help install uninstall use current 
+    list ls list-remote ls-remote unload'
 
   if [ ${#COMP_WORDS[@]} == 4 ]; then
 

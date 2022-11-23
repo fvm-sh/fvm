@@ -2,6 +2,8 @@
 
 Inspired by [nvm](https://github.com/nvm-sh/nvm)
 
+**Note** `fvm` will add a shell function `flutter` in bash env, all flutter commands will be this  dispathed to current flutter version though this `flutter` shell function
+
 <!-- To update this table of contents, ensure you have run `npm install` then `npm run doctoc` -->
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -14,7 +16,6 @@ Inspired by [nvm](https://github.com/nvm-sh/nvm)
     - [Additional Notes](#additional-notes)
     - [Troubleshooting on Linux](#troubleshooting-on-linux)
     - [Troubleshooting on macOS](#troubleshooting-on-macos)
-    - [Ansible](#ansible)
   - [Verify Installation](#verify-installation)
   - [Important Notes](#important-notes)
   - [Git Install](#git-install)
@@ -91,7 +92,7 @@ export FVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.fvm" || pr
 
 - You can add `--no-use` to the end of the above script (...`fvm.sh --no-use`) to postpone using `fvm` until you manually [`use`](#usage) it.
 
-- You can customize the install directory, profile, and version using the `FVM_DIR`, `PROFILE`, and `FLUTTER_VERSION` variables.
+- You can customize the install directory, profile using the `FVM_DIR`, `PROFILE`.
 Eg: `curl ... | FVM_DIR="path/to/fvm"`. Ensure that the `FVM_DIR` does not contain a trailing slash.
 
 - The installer can use `git`, `curl`, or `wget` to download `fvm`, whichever is available.
@@ -133,17 +134,6 @@ If the above doesn't fix the problem, you may try the following:
 
 **Note** For Macs with the M1 chip, flutter started offering **arm64** arch darwin archive at stable channel since version 3.0.0 and beta channel since 2.12.0-4.1.pre. If you are facing issues installing flutter using `fvm`, you may want to update to one of those versions or later.
 
-#### Ansible
-
-You can use a task:
-
-```yaml
-- name: Install fvm
-  ansible.builtin.shell: >
-    curl -o- https://raw.githubusercontent.com/fvm-sh/fvm/v0.0.1/install.sh | bash
-  args:
-    creates: "{{ ansible_env.HOME }}/.fvm/fvm.sh"
-```
 
 ### Verify Installation
 
@@ -245,11 +235,13 @@ fvm use 3.3.8
 
 ### System Version of Flutter
 
-If you want to use the system-installed version of flutter, you can use the special alias "system":
+If you want to use the system-installed version of flutter, you can unload fvm temporarily:
 
 ```sh
-fvm use system
+fvm unload
 ```
+**Note:** This will unload all `fvm` things, if you want to use fvm again, just close your current terminal, open a new terminal, and try verifying again.
+
 
 ### Listing Versions
 
@@ -265,13 +257,6 @@ If you want to see what versions are available to install:
 fvm ls-remote
 ```
 
-### Restoring PATH
-To restore your PATH, you can deactivate it:
-
-```sh
-fvm deactivate
-```
-
 ### Use a mirror of flutter archives
 To use a mirror of the flutter archives, set `$FLUTTER_STORAGE_BASE_URL`:
 
@@ -284,8 +269,8 @@ FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn fvm install 3.3.8
 
 ### flutter.version
 
-You can create a `flutter.version` file containing a flutter version number (or any other string that `fvm` understands; see `fvm --help` for details) in the project root directory (or any parent directory).
-Afterwards, `fvm use` and `fvm install` will use the version specified in the `flutter.version` file if no version is supplied on the command line.
+You can create a `flutter.version` file containing a flutter version string in the project root directory .
+Afterwards, `flutter` commands will use the version specified in the `flutter.version` file .
 
 For example, to make fvm default to the 3.3.8 release for the current directory:
 
@@ -296,9 +281,11 @@ $ echo "3.3.8" > flutter.version
 Then when you run fvm:
 
 ```sh
-$ fvm use
-Found 'flutter.version' with version <3.3.8>
-Now using flutter 3.3.8
+$ flutter --version
+Flutter 2.10.3 • channel stable • https://github.com/flutter/flutter.git
+Framework • revision 7e9793dee1 (9 months ago) • 2022-03-02 11:23:12 -0600
+Engine • revision bd539267b4
+Tools • Dart 2.16.1 • DevTools 2.9.2
 ```
 
 The contents of a `flutter.version` file **must** be the `<version>` (as described by `fvm --help`) . No trailing spaces are allowed.
@@ -331,8 +318,7 @@ fvm:
 
 > `$ fvm` <kbd>Tab</kbd>
 ```sh
-deactivate          install             list-remote         uninstall           version
-cache               ls                  unload              version-remote      current             help                list                ls-remote           use                 which
+install             list-remote         uninstall           ls                  unload              current             help                list                ls-remote           use                 
 ```
 
 fvm use:
@@ -377,9 +363,7 @@ export FVM_DIR="$HOME/.fvm"
 
 ## Problems
 
-  - If you try to install a flutter version and the installation fails, be sure to run `fvm cache clear` to delete cached flutter downloads, or you might get an error like the following:
-
-    curl: (33) HTTP server doesn't seem to support byte ranges. Cannot resume.
+As a shell function `flutter` will be added, tools depending on `which flutter` or `command -v flutter` could not find flutter anymore.
 
 ## macOS Troubleshooting
 

@@ -81,13 +81,6 @@ fvm_source() {
   fvm_echo "$FVM_SOURCE_URL"
 }
 
-#
-# Flutter version to install
-#
-fvm_flutter_version() {
-  fvm_echo "$FLUTTER_VERSION"
-}
-
 fvm_download() {
   if fvm_has "curl"; then
     curl --fail --compressed -q "$@"
@@ -182,29 +175,6 @@ install_fvm_from_git() {
     fvm_echo >&2 "Your version of git is out of date. Please update it!"
   fi
   return
-}
-
-#
-# Automatically install Flutter
-#
-fvm_install_flutter() {
-  local FLUTTER_VERSION_LOCAL
-  FLUTTER_VERSION_LOCAL="$(fvm_flutter_version)"
-
-  if [ -z "$FLUTTER_VERSION_LOCAL" ]; then
-    return 0
-  fi
-
-  fvm_echo "=> Installing Flutter version $FLUTTER_VERSION_LOCAL"
-  fvm install "$FLUTTER_VERSION_LOCAL"
-  local CURRENT_FVM_FLUTTER
-
-  CURRENT_FVM_FLUTTER="$(fvm_version current)"
-  if [ "$(fvm_version "$FLUTTER_VERSION_LOCAL")" == "$CURRENT_FVM_FLUTTER" ]; then
-    fvm_echo "=> Flutter version $FLUTTER_VERSION_LOCAL has been successfully installed"
-  else
-    fvm_echo >&2 "Failed to install Flutter $FLUTTER_VERSION_LOCAL"
-  fi
 }
 
 install_fvm_as_script() {
@@ -322,10 +292,9 @@ fvm_check_global_flutter() {
 
   fvm_echo '=> If you wish to uninstall it at a later point (or re-install it under your'
   # shellcheck disable=SC2016
-  fvm_echo '=> `fvm` Flutters), you can remove them from the system Node as follows:'
+  fvm_echo '=> `fvm` Flutters), you can remove them from the system Flutter as follows:'
   fvm_echo
   fvm_echo '     $ fvm use system'
-  # fvm_echo '     $ npm uninstall -g a_module'
   fvm_echo
 }
 
@@ -431,8 +400,6 @@ fvm_do_install() {
 
   fvm_check_global_flutter
 
-  fvm_install_flutter
-
   fvm_reset
 
   fvm_echo "=> Close and reopen your terminal to start using fvm or run the following to use it now:"
@@ -448,7 +415,7 @@ fvm_do_install() {
 #
 fvm_reset() {
   unset -f fvm_has fvm_install_dir fvm_latest_version fvm_profile_is_bash_or_zsh \
-    fvm_source fvm_flutter_version fvm_download install_fvm_from_git fvm_install_flutter \
+    fvm_source fvm_download install_fvm_from_git \
     install_fvm_as_script fvm_try_profile fvm_detect_profile fvm_check_global_flutter \
     fvm_do_install fvm_reset fvm_default_install_dir fvm_grep
 }

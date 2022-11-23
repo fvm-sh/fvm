@@ -1,5 +1,3 @@
-
-
 fvm_command_info() {
   local COMMAND
   local INFO
