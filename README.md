@@ -24,6 +24,7 @@ Inspired by [nvm](https://github.com/nvm-sh/nvm)
   - [Listing Versions](#listing-versions)
   - [Restoring PATH](#restoring-path)
   - [Use a mirror of flutter archives](#use-a-mirror-of-flutter-archives)
+  - [Link a version](#link-a-version)
 - [Environment variables](#environment-variables)
 - [Bash Completion](#bash-completion)
   - [Usage](#usage-1)
@@ -267,8 +268,21 @@ fvm install 3.3.8
 FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn fvm install 3.3.8
 ```
 
-`fvm use` will not, by default, create a "current" symlink. Set `$FVM_SYMLINK_CURRENT` to "true" to enable this behavior, which is sometimes useful for IDEs. Note that using `fvm` in multiple shell tabs with this environment variable enabled can cause race conditions.
+### Link a version
+IDEs usually need flutter sdk path to provide services, you can create a soft link to a version by `fvm link <version>`:
+``` sh
+fvm link 3.3.8
+```
+This will link installed 3.3.8 version path to `.flutter` under current directory.
 
+Then you can config IDEs (like VS Code) with this soft link:
+
+.vscode/settings.json
+``` json
+{
+  "dart.flutterSdkPath": ".flutter",
+}
+```
 ## Environment variables
 
 fvm exposes the following environment variables:

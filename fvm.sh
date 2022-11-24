@@ -473,12 +473,13 @@ fvm() {
         fvm_echo 'Usage:'
         fvm_echo '  fvm --help                                  Show this message'
         fvm_echo '  fvm --version                               Print out the installed version of fvm'
-        fvm_echo '  fvm install [<version>]                     Download and install a <version>.'
+        fvm_echo '  fvm install <version>                       Download and install a <version>.'
         fvm_echo '  fvm uninstall <version>                     Uninstall a version'
-        fvm_echo '  fvm use [<version>]                         Modify PATH to use flutter <version>.'
+        fvm_echo '  fvm use <version>                           Modify PATH to use flutter <version>.'
         fvm_echo '   The following optional arguments:'
         fvm_echo '    -g,--global                               Modify global default flutter <version>.'
-        fvm_echo '  fvm current                                 Display currently activated version of Flutter'
+        fvm_echo '  fvm current                                 Display currently activated version of Flutter.'
+        fvm_echo '  fvm link <version>                          Create a soft link ".flutter" to <version> of Flutter.'
         fvm_echo '  fvm ls [<version>]                          List installed versions, matching a given <version> if provided'
         fvm_echo '  fvm ls-remote [<version>]                   List remote versions available for install, matching a given <version> if provided'
         fvm_echo '   The following optional arguments:'
@@ -618,10 +619,6 @@ fvm() {
       if [ -n "${FVM_LS_OUTPUT}" ]; then
         fvm_echo "${FVM_LS_OUTPUT}"
       fi
-      local system_version="$(fvm_ls_system)"
-      if [ -n "${system_version}" ]; then
-        fvm_echo "${system_version} (Manually installed)"
-      fi
     ;;
     "ls-remote" | "list-remote")
       local FVM_LS_REMOTE_OUTPUT
@@ -643,8 +640,28 @@ fvm() {
       fi
       local system_version="$(fvm_ls_system)"
       if [ -n "${system_version}" ]; then
-        fvm_echo "${system_version} (Manually installed)"
+        fvm_echo "system (${system_version})"
       fi
+    ;;
+    "link")
+      local PROVIDED_VERSION="${1-}"
+      if [ -z "${PROVIDED_VERSION}" ]; then
+        fvm_err "fvm: version is required !!"
+        return 127
+      fi
+
+      if ! fvm_is_version_installed "${PROVIDED_VERSION}"; then
+        fvm_err "fvm: version \"${PROVIDED_VERSION}\" is not yet installed."
+        fvm_err ""
+        fvm_err "You need to run \`fvm install ${PROVIDED_VERSION}\` to install and use it."
+        return 1
+      fi
+
+      local FVM_VERSION_DIR
+      FVM_VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
+
+      command rm -r ".flutter" >/dev/null 2>&1
+      command ln -s "${FVM_VERSION_DIR}" ".flutter" >/dev/null 2>&1
     ;;
     "--version" | "-v")
       fvm_echo 'v0.0.1'

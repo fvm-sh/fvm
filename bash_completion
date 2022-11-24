@@ -55,7 +55,7 @@ __fvm() {
   previous_word="${COMP_WORDS[COMP_CWORD - 1]}"
 
   case "${previous_word}" in
-    use| ls | list | uninstall) __fvm_installed_flutters ;;
+    use| ls | list | uninstall | link) __fvm_installed_flutters ;;
     *) __fvm_commands ;;
   esac
 
