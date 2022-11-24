@@ -18,7 +18,15 @@ fvm_is_zsh() {
 }
 
 fvm_cd() {
-  \cd "$@"
+
+  # Make zsh glob matching behave same as bash
+  # This fixes the "zsh: no matches found" errors
+  local FVM_CD_FLAGS
+  if fvm_is_zsh; then
+    FVM_CD_FLAGS="-q"
+  fi
+
+  \cd ${FVM_CD_FLAGS} "$@"
 }
 
 fvm_echo() {
@@ -695,7 +703,6 @@ fvm() {
         fvm_curl_use_compression \ fvm_curl_libz_support \
         >/dev/null 2>&1
       unset FVM_DIR \
-        FVM_CD_FLAGS \
         >/dev/null 2>&1
     ;;
     *)
@@ -732,15 +739,6 @@ fvm_process_parameters() {
   fvm_auto "${FVM_AUTO_MODE}"
 }
 
-# Make zsh glob matching behave same as bash
-# This fixes the "zsh: no matches found" errors
-if [ -z "${FVM_CD_FLAGS-}" ]; then
-  export FVM_CD_FLAGS=''
-fi
-if fvm_is_zsh; then
-  FVM_CD_FLAGS="-q"
-fi
-
 # Auto detect the FVM_DIR when not set
 if [ -z "${FVM_DIR-}" ]; then
   # shellcheck disable=SC2128
@@ -748,7 +746,7 @@ if [ -z "${FVM_DIR-}" ]; then
     # shellcheck disable=SC2169,SC3054
     FVM_SCRIPT_SOURCE="${BASH_SOURCE[0]}"
   fi
-  FVM_DIR="$(fvm_cd ${FVM_CD_FLAGS} "$(dirname "${FVM_SCRIPT_SOURCE:-$0}")" >/dev/null && \pwd)"
+  FVM_DIR="$(fvm_cd "$(dirname "${FVM_SCRIPT_SOURCE:-$0}")" >/dev/null && \pwd)"
   export FVM_DIR
 else
   # https://unix.stackexchange.com/a/198289

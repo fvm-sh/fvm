@@ -24,14 +24,12 @@ Inspired by [nvm](https://github.com/nvm-sh/nvm)
   - [Listing Versions](#listing-versions)
   - [Restoring PATH](#restoring-path)
   - [Use a mirror of flutter archives](#use-a-mirror-of-flutter-archives)
-  - [flutter.version](#flutterversion)
 - [Environment variables](#environment-variables)
 - [Bash Completion](#bash-completion)
   - [Usage](#usage-1)
 - [Compatibility Issues](#compatibility-issues)
 - [Uninstalling / Removal](#uninstalling--removal)
   - [Manual Uninstall](#manual-uninstall)
-- [Problems](#problems)
 - [macOS Troubleshooting](#macos-troubleshooting)
 - [Maintainers](#maintainers)
 - [License](#license)
@@ -277,7 +275,6 @@ FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn fvm install 3.3.8
 fvm exposes the following environment variables:
 
 - `FVM_DIR` - fvm's installation directory.
-- `FVM_CD_FLAGS` - used to maintain compatibility with zsh.
 
 Additionally, fvm modifies `PATH`, and, if present, `MANPATH` when changing versions.
 
@@ -340,12 +337,6 @@ export FVM_DIR="$HOME/.fvm"
 [ -s "$FVM_DIR/fvm.sh" ] && \. "$FVM_DIR/fvm.sh" # This loads fvm
 [[ -r $FVM_DIR/bash_completion ]] && \. $FVM_DIR/bash_completion
 ```
-
-## Problems
-
-  - If you try to install a flutter version and the installation fails, be sure to run `fvm cache clear` to delete cached flutter downloads, or you might get an error like the following:
-
-  curl: (33) HTTP server doesn't seem to support byte ranges. Cannot resume.
 
 ## macOS Troubleshooting
 
