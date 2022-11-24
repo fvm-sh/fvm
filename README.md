@@ -2,8 +2,6 @@
 
 Inspired by [nvm](https://github.com/nvm-sh/nvm)
 
-**Note** `fvm` will add a shell function `flutter` in bash env, all flutter commands will be this  dispathed to current flutter version though this `flutter` shell function
-
 <!-- To update this table of contents, ensure you have run `npm install` then `npm run doctoc` -->
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -235,13 +233,11 @@ fvm use 3.3.8
 
 ### System Version of Flutter
 
-If you want to use the system-installed version of flutter, you can unload fvm temporarily:
+If you want to use the system-installed version of flutter, you can use the special alias "system":
 
 ```sh
-fvm unload
+fvm use system
 ```
-**Note:** This will unload all `fvm` things, if you want to use fvm again, just close your current terminal, open a new terminal, and try verifying again.
-
 
 ### Listing Versions
 
@@ -257,6 +253,13 @@ If you want to see what versions are available to install:
 fvm ls-remote
 ```
 
+### Restoring PATH
+To restore your PATH, you can deactivate it:
+
+```sh
+fvm deactivate
+```
+
 ### Use a mirror of flutter archives
 To use a mirror of the flutter archives, set `$FLUTTER_STORAGE_BASE_URL`:
 
@@ -267,39 +270,16 @@ fvm install 3.3.8
 FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn fvm install 3.3.8
 ```
 
-### flutter.version
-
-You can create a `flutter.version` file containing a flutter version string in the project root directory .
-Afterwards, `flutter` commands will use the version specified in the `flutter.version` file .
-
-For example, to make fvm default to the 3.3.8 release for the current directory:
-
-```sh
-$ echo "3.3.8" > flutter.version
-```
-
-Then when you run fvm:
-
-```sh
-$ flutter --version
-Flutter 2.10.3 • channel stable • https://github.com/flutter/flutter.git
-Framework • revision 7e9793dee1 (9 months ago) • 2022-03-02 11:23:12 -0600
-Engine • revision bd539267b4
-Tools • Dart 2.16.1 • DevTools 2.9.2
-```
-
-The contents of a `flutter.version` file **must** be the `<version>` (as described by `fvm --help`) . No trailing spaces are allowed.
+`fvm use` will not, by default, create a "current" symlink. Set `$FVM_SYMLINK_CURRENT` to "true" to enable this behavior, which is sometimes useful for IDEs. Note that using `fvm` in multiple shell tabs with this environment variable enabled can cause race conditions.
 
 ## Environment variables
 
 fvm exposes the following environment variables:
 
 - `FVM_DIR` - fvm's installation directory.
-- `FVM_BIN` - where flutter, npm, and global packages for the active version of flutter are installed.
 - `FVM_CD_FLAGS` - used to maintain compatibility with zsh.
-- `FVM_FLUTTER_VERSION` - version from flutter.version file if being used.
 
-Additionally, fvm modifies `PATH`, and, if present, `MANPATH` and `NODE_PATH` when changing versions.
+Additionally, fvm modifies `PATH`, and, if present, `MANPATH` when changing versions.
 
 
 ## Bash Completion
@@ -363,7 +343,9 @@ export FVM_DIR="$HOME/.fvm"
 
 ## Problems
 
-As a shell function `flutter` will be added, tools depending on `which flutter` or `command -v flutter` could not find flutter anymore.
+  - If you try to install a flutter version and the installation fails, be sure to run `fvm cache clear` to delete cached flutter downloads, or you might get an error like the following:
+
+  curl: (33) HTTP server doesn't seem to support byte ranges. Cannot resume.
 
 ## macOS Troubleshooting
 
