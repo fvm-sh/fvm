@@ -421,9 +421,6 @@ fvm_install(){
   return EXIT_CODE
 }
 
-fvm_use_global() {
-}
-
 fvm() {
   if [ "$#" -lt 1 ]; then
     fvm --help

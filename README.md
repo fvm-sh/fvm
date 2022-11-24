@@ -50,15 +50,14 @@ Framework • revision 7e9793dee1 (9 months ago) • 2022-03-02 11:23:12 -0600
 Engine • revision bd539267b4
 Tools • Dart 2.16.1 • DevTools 2.9.2
 $ fvm install 3.3.8
-Now using flutter 3.3.8
+Now 3.3.8 is installed
 ```
 
 Simple as that!
 
 
 ## About
-fvm is a version manager for [flutter](https://flutter.dev/), inspired by [nvm](https://github.com/nvm-sh/nvm) 
-.`fvm` works on any POSIX-compliant shell (sh, dash, ksh, zsh, bash), in particular on these platforms: unix, macOS, and [windows WSL](https://github.com/fvm-sh/fvm#important-notes).
+`fvm` is a version manager for [flutter](https://flutter.dev/). `fvm` works on any POSIX-compliant shell (sh, dash, ksh, zsh, bash), in particular on these platforms: unix, macOS, and [windows WSL](https://github.com/fvm-sh/fvm#important-notes).
 
 <a id="installation-and-update"></a>
 <a id="install-script"></a>
