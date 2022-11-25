@@ -423,7 +423,7 @@ fvm_install(){
     fvm_err "  fvm install ${VERSION}"
     return EXIT_CODE
   fi
-  command mkdir -p "${VERSION_DIR}"
+  command mkdir -p `dirname ${VERSION_DIR}`
   command mv "${TMPPATH}/flutter" $VERSION_DIR >/dev/null 2>&1
   command rm -fr $TMPPATH >/dev/null 2>&1
   fvm_err "Now $VERSION is installed"
