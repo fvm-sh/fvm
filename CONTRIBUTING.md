@@ -1,6 +1,6 @@
 Thanks for contributing to `fvm`!
 
-We love pull requests and issues, they're our favorite.
+Pull requests and issues are welcome.
 
 However, before submitting, please review the following:
 

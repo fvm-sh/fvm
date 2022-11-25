@@ -32,7 +32,6 @@ Inspired by [nvm](https://github.com/nvm-sh/nvm)
 - [Uninstalling / Removal](#uninstalling--removal)
   - [Manual Uninstall](#manual-uninstall)
 - [macOS Troubleshooting](#macos-troubleshooting)
-- [Maintainers](#maintainers)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -380,10 +379,6 @@ Ignore insecure directories and continue [y] or abort compinit [n]? y
 ```
 
 Homebrew causes insecure directories like `/usr/local/share/zsh/site-functions` and `/usr/local/share/zsh`. This is **not** an `fvm` problem - it is a homebrew problem. Refer [here](https://github.com/zsh-users/zsh-completions/issues/680) for some solutions related to the issue.
-
-## Maintainers
-
-Currently, the sole maintainer is [@hyiso](https://github.com/hyiso) - more maintainers are quite welcome, and we hope to add folks to the team over time. [Governance](./GOVERNANCE.md) will be re-evaluated as the project evolves.
 
 ## License
 
