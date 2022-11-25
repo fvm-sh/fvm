@@ -403,18 +403,29 @@ fvm_install(){
   local CACHE_DIR="$(fvm_cache_dir)"
   local ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE}"
   if [ ! -f "${ARCHIVE_PATH}" ]; then
-    fvm_err "$VERSION is downloading..."
     command mkdir -p `dirname $ARCHIVE_PATH`
-    local ARCHIVE_URL="${FLUTTER_RELEASE_BASE_URL}/${ARCHIVE}"
-    fvm_download --progress-bar -o $ARCHIVE_PATH $ARCHIVE_URL
-  else
-    fvm_err "$VERSION is already downloaded."
+    local STORAGE_BASE="${FLUTTER_STORAGE_BASE_URL:-"https://storage.googleapis.com"}"
+    local ARCHIVE_URL="${STORAGE_BASE}/flutter_infra_release/releases/${ARCHIVE}"
+    fvm_download --progress-bar -o "$ARCHIVE_PATH" "$ARCHIVE_URL"
+    EXIT_CODE=$?
+    if [ "${EXIT_CODE}" != "0" ]; then
+      return EXIT_CODE
+    fi
   fi
   local TMPPATH="${CACHE_DIR}/tmp"
   local VERSION_DIR="$(fvm_version_path "${VERSION}")"
-  command unzip -oq $ARCHIVE_PATH -d $TMPPATH \
-          && mv "${TMPPATH}/flutter" $VERSION_DIR \
-          && rm -fr $TMPPATH
+  command unzip -oq $ARCHIVE_PATH -d $TMPPATH >/dev/null 2>&1
+  EXIT_CODE=$?
+  if [ "${EXIT_CODE}" != "0" ]; then
+    fvm_err "fvm: unzip downloaded .zip failed, you can remove it by:"
+    fvm_err "  rm ${ARCHIVE_PATH}"
+    fvm_err "and install again:"
+    fvm_err "  fvm install ${VERSION}"
+    return EXIT_CODE
+  fi
+  command mkdir -p "${VERSION_DIR}"
+  command mv "${TMPPATH}/flutter" $VERSION_DIR >/dev/null 2>&1
+  command rm -fr $TMPPATH >/dev/null 2>&1
   fvm_err "Now $VERSION is installed"
 
   EXIT_CODE=$?
