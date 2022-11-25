@@ -30,9 +30,8 @@ fvm_debug() {
   fvm_err "\$SHLVL: ${SHLVL-}"
   fvm_err "whoami: '$(whoami)'"
   fvm_err "\${HOME}: ${HOME}"
-  fvm_err "\${FVM_DIR}: '$(fvm_sanitize_path "${FVM_DIR}")'"
-  fvm_err "\${PATH}: $(fvm_sanitize_path "${PATH}")"
-  fvm_err "\$PREFIX: '$(fvm_sanitize_path "${PREFIX}")'"
+  fvm_err "\${FVM_DIR}: '${FVM_DIR}'"
+  fvm_err "\${PATH}: ${PATH}"
   fvm_err "shell version: '$(${SHELL} --version | command head -n 1)'"
   fvm_err "uname -a: '$(command uname -a | command awk '{$2=""; print}' | command xargs)'"
   if [ "$(fvm_get_os)" = "macos" ] && fvm_has sw_vers; then
@@ -97,7 +96,7 @@ fvm_debug() {
   local FVM_DEBUG_OUTPUT
   for FVM_DEBUG_COMMAND in 'fvm current' 'which flutter' 'which dart'; do
     FVM_DEBUG_OUTPUT="$(${FVM_DEBUG_COMMAND} 2>&1)"
-    fvm_err "${FVM_DEBUG_COMMAND}: $(fvm_sanitize_path "${FVM_DEBUG_OUTPUT}")"
+    fvm_err "${FVM_DEBUG_COMMAND}: ${FVM_DEBUG_OUTPUT}"
   done
   return 42
 }
