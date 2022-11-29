@@ -488,7 +488,7 @@ fvm() {
         fvm_echo '  fvm uninstall <version>                     Uninstall a version'
         fvm_echo '  fvm use <version>                           Modify PATH to use flutter <version>.'
         fvm_echo '   The following optional arguments:'
-        fvm_echo '    -g,--global                               Modify global default flutter <version>.'
+        fvm_echo '    -g,--global                               Set global default flutter <version>.'
         fvm_echo '  fvm current                                 Display currently activated version of Flutter.'
         fvm_echo '  fvm link <version>                          Create a soft link ".flutter" to <version> of Flutter.'
         fvm_echo '  fvm ls [<version>]                          List installed versions, matching a given <version> if provided'
@@ -498,7 +498,8 @@ fvm() {
         fvm_echo '    --no-beta                                 Exclude beta released versions'
         fvm_echo '    --no-dev                                  Exclude dev released versions'
         fvm_echo '  fvm deactivate                              Undo effects of `fvm` on current shell'
-        fvm_echo '    --silent                                  Silences stdout/stderr output'
+        fvm_echo '   The following optional arguments:'
+        fvm_echo '    -g,--global                               Unset global default flutter <version>.'
         fvm_echo '  fvm unload                                  Unload `fvm` from shell'
         fvm_echo 'Example:'
         fvm_echo '  fvm install 3.0                       Install the lastest 3.0.x version of flutter'
@@ -678,10 +679,10 @@ fvm() {
       fvm_echo 'v0.1.0'
     ;;
     "deactivate")
-      local FVM_SILENT
+      local FVM_GLOBAL
       while [ $# -ne 0 ]; do
         case "${1}" in
-          --silent) FVM_SILENT=1 ;;
+          -g | --global) FVM_GLOBAL=1 ;;
           --) ;;
         esac
         shift
@@ -689,29 +690,24 @@ fvm() {
       local NEWPATH
       NEWPATH="$(fvm_strip_path "${PATH}" "/bin")"
       if [ "_${PATH}" = "_${NEWPATH}" ]; then
-        if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-          fvm_err "Could not find ${FVM_DIR}/*/bin in \${PATH}"
-        fi
+        fvm_err "Could not find ${FVM_DIR}/*/bin in \${PATH}"
       else
         export PATH="${NEWPATH}"
         hash -r
-        if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-          fvm_err "${FVM_DIR}/*/bin removed from \${PATH}"
-        fi
+        fvm_err "${FVM_DIR}/*/bin removed from \${PATH}"
       fi
 
       if [ -n "${MANPATH-}" ]; then
         NEWPATH="$(fvm_strip_path "${MANPATH}" "/share/man")"
         if [ "_${MANPATH}" = "_${NEWPATH}" ]; then
-          if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-            fvm_err "Could not find ${FVM_DIR}/*/share/man in \${MANPATH}"
-          fi
+          fvm_err "Could not find ${FVM_DIR}/*/share/man in \${MANPATH}"
         else
           export MANPATH="${NEWPATH}"
-          if [ "${FVM_SILENT:-0}" -ne 1 ]; then
-            fvm_err "${FVM_DIR}/*/share/man removed from \${MANPATH}"
-          fi
+          fvm_err "${FVM_DIR}/*/share/man removed from \${MANPATH}"
         fi
+      fi
+      if [ "${FVM_GLOBAL}" = "1" ]; then
+        command rm "${FVM_DIR}/flutter.version"
       fi
     ;;
     "unload")
