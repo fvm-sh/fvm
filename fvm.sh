@@ -676,7 +676,7 @@ fvm() {
       command ln -s "${FVM_VERSION_DIR}" ".flutter" >/dev/null 2>&1
     ;;
     "--version" | "-v")
-      fvm_echo 'v0.1.0'
+      fvm_echo 'v0.2.0'
     ;;
     "deactivate")
       local FVM_GLOBAL

@@ -33,7 +33,7 @@ fvm_install_dir() {
 }
 
 fvm_latest_version() {
-  fvm_echo "v0.1.0"
+  fvm_echo "v0.2.0"
 }
 
 fvm_profile_is_bash_or_zsh() {
