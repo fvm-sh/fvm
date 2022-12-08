@@ -392,8 +392,7 @@ fvm_install(){
   EXIT_CODE=0
   if fvm_is_version_installed "${VERSION}"; then
     fvm_err "${VERSION} is already installed."
-    EXIT_CODE=$?
-    return $EXIT_CODE
+    return
   fi
 
   if [[ -z ${ARCHIVE}  ]];then
@@ -676,7 +675,7 @@ fvm() {
       command ln -s "${FVM_VERSION_DIR}" ".flutter" >/dev/null 2>&1
     ;;
     "--version" | "-v")
-      fvm_echo 'v0.2.1'
+      fvm_echo 'v0.2.2'
     ;;
     "deactivate")
       local FVM_GLOBAL
