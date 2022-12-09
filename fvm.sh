@@ -309,7 +309,7 @@ fvm_ls() {
   local SEARCH_DIR
   SEARCH_DIR="${FVM_DIR}/versions"
   if [ -n "${SEARCH_DIR}" ]; then
-    VERSIONS="$(command find "${SEARCH_DIR}"/* -type d -depth 0 -name "${PATTERN}*" \
+    VERSIONS="$(command find "${SEARCH_DIR}"/* -type d -maxdepth 0 -name "${PATTERN}*" \
       | command sed -e "
           s#^${FVM_DIR}/##;
           \\#^versions\$# d;
