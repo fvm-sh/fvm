@@ -360,7 +360,7 @@ fvm_install(){
   local FVM_ARCH="$(fvm_get_arch)"
   local RELEASES
   RELEASES="$(fvm_releases "_${PROVIDED_VERSION}-")"
-  if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ] && fvm_version_greater_than_or_equal_to "2.12.0"; then
+  if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ] && fvm_version_greater_than_or_equal_to "${PROVIDED_VERSION}" "2.12.0"; then
     RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep "arm64")"
   else
     RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep -v "arm64")"
