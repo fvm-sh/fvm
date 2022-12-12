@@ -222,6 +222,24 @@ fvm_version_path() {
 }
 
 fvm_releases() {
+  local PATTERN
+  PATTERN="${1-}"
+  local FVM_OS="$(fvm_get_os)"
+  if [ "_${FVM_OS}" = "_unsupported" ]; then
+    fvm_err "Currently there is no released flutter sdk for this os."
+    return 1
+  fi
+  local STORAGE_BASE="${FLUTTER_STORAGE_BASE_URL:-"https://storage.googleapis.com"}"
+  local RELEASES_URL="${STORAGE_BASE}/flutter_infra_release/releases/releases_${FVM_OS}.json"
+  local RELEASES="$(fvm_download -Ss "${RELEASES_URL}" \
+    | fvm_grep '\"archive\":' \
+    | fvm_grep "${PATTERN}" \
+    | command awk -F '"' '{print $(NF-1)}' \
+  )"
+  fvm_echo "${RELEASES}"
+}
+
+fvm_ls_remote() {
   local NO_STABLE
   local NO_BETA
   local NO_DEV
@@ -229,31 +247,20 @@ fvm_releases() {
   while [ $# -ne 0 ]; do
     case "${1}" in
       --no-stable) NO_STABLE=1 ;;
-      --no-beta) NO_BETA ;;
+      --no-beta) NO_BETA=1 ;;
       --no-dev) NO_DEV=1 ;;
       --) ;;
       *) PATTERN="${1-}" ;;
     esac
     shift
   done
-  local FVM_OS="$(fvm_get_os)"
-  local FVM_ARCH="$(fvm_get_arch)"
-  if [ "_${FVM_OS}" = "_unsupported" ]; then
-    fvm_err "Currently there is no support for this os with flutter."
-    return 1
-  fi
-  local STORAGE_BASE="${FLUTTER_STORAGE_BASE_URL:-"https://storage.googleapis.com"}"
-  local RELEASES_URL="${STORAGE_BASE}/flutter_infra_release/releases/releases_${FVM_OS}.json"
-  local RELEASES="$(fvm_download -Ss "${RELEASES_URL}" \
-    | fvm_grep '\"archive\":' \
-    | fvm_grep "_${PATTERN}" \
-    | command awk -F '"' '{print $(NF-1)}' \
-  )"
-  if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ]; then
-    RELEASES="$(fvm_echo $RELEASES | fvm_grep "arm64")"
-  else
-    RELEASES="$(fvm_echo $RELEASES | fvm_grep -v "arm64")"
-  fi
+
+  local FVM_LS_REMOTE_EXIT_CODE
+  FVM_LS_REMOTE_EXIT_CODE=0
+
+  local RELEASES
+  RELEASES="$(fvm_releases "_${PATTERN}")"
+  
   if [ "${NO_STABLE}" = "1" ]; then
     RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep -v "stable")"
   fi
@@ -263,29 +270,10 @@ fvm_releases() {
   if [ "${NO_DEV}" = "1" ]; then
     RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep -v "dev")"
   fi
-  fvm_echo "${RELEASES}"
-}
 
-fvm_ls_remote() {
-
-  local FVM_LS_REMOTE_EXIT_CODE
-  FVM_LS_REMOTE_EXIT_CODE=0
-  
-  local FVM_LS_REMOTE_OUTPUT
-  FVM_LS_REMOTE_OUTPUT="$(fvm_releases "$@" \
+  fvm_echo "${RELEASES}" \
     | command awk -F '_' '{print $NF}' \
-    | command awk -F '.zip' '{print $(NF-1)}' \
-  )"
-
-  if [ -z "${FVM_LS_REMOTE_OUTPUT}" ]; then
-    fvm_echo 'N/A'
-    return 3
-  fi
-  # the `sed` is to remove trailing whitespaces (see "weird behavior" ~25 lines up)
-  fvm_echo "${FVM_LS_REMOTE_OUTPUT}" \
-    | command awk -F '_' '{print $NF}' \
-    | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));print "";}' \
-    | command sed 's/ *$//g'
+    | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));print "";}'
   return $FVM_LS_REMOTE_EXIT_CODE
 }
 
@@ -368,36 +356,31 @@ fvm_install(){
     return
   fi
 
+  local FVM_OS="$(fvm_get_os)"
+  local FVM_ARCH="$(fvm_get_arch)"
+  local RELEASES
+  RELEASES="$(fvm_releases "_${PROVIDED_VERSION}-")"
+  if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ] && fvm_version_greater_than_or_equal_to "2.12.0"; then
+    RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep "arm64")"
+  else
+    RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep -v "arm64")"
+  fi
+
   local ARCHIVE
-  ARCHIVE="$(fvm_releases "${PROVIDED_VERSION}" | command awk 'NR==1')"
+  ARCHIVE="$(fvm_echo "${RELEASES}" | command awk 'NR==1')"
 
-  local VERSION
-  VERSION="$(fvm_echo "${ARCHIVE}" \
-    | command awk -F '_' '{print $NF}' \
-    | command awk -F "-" '{for (i=1;i<=NF-2;i++)printf("%s-", $i);printf("%s", $(NF-1));print "";}' \
-  )"
-
-  if [ -z "${VERSION}" ]; then
+  if [ -z "${ARCHIVE}" ]; then
     local REMOTE_CMD
     REMOTE_CMD='fvm ls-remote'
     fvm_err "Version '${PROVIDED_VERSION}' not found - try \`${REMOTE_CMD}\` to browse available versions."
     return 3
   fi
 
-  if [ "$VERSION" != "$PROVIDED_VERSION" ]; then
-    fvm_err "Resolve version $PROVIDED_VERSION to $VERSION"
-  fi
-
   local EXIT_CODE
   EXIT_CODE=0
-  if fvm_is_version_installed "${VERSION}"; then
-    fvm_err "${VERSION} is already installed."
+  if fvm_is_version_installed "${PROVIDED_VERSION}"; then
+    fvm_err "${PROVIDED_VERSION} is already installed."
     return
-  fi
-
-  if [[ -z ${ARCHIVE}  ]];then
-    fvm_err "fvm: no flutter version matched $VERSION !!"
-    return 1
   fi
   local CACHE_DIR="$(fvm_cache_dir)"
   local ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE}"
@@ -412,14 +395,14 @@ fvm_install(){
     fi
   fi
   local TMPPATH="${CACHE_DIR}/tmp"
-  local VERSION_DIR="$(fvm_version_path "${VERSION}")"
+  local VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
   command unzip -oq $ARCHIVE_PATH -d $TMPPATH >/dev/null 2>&1
   EXIT_CODE=$?
   if [ "${EXIT_CODE}" != "0" ]; then
     fvm_err "fvm: unzip downloaded .zip failed, you can remove it by:"
     fvm_err "  rm ${ARCHIVE_PATH}"
     fvm_err "and install again:"
-    fvm_err "  fvm install ${VERSION}"
+    fvm_err "  fvm install ${PROVIDED_VERSION}"
     return EXIT_CODE
   fi
   command mkdir -p `dirname ${VERSION_DIR}`
@@ -484,7 +467,7 @@ fvm() {
         fvm_echo '  fvm --help                                  Show this message'
         fvm_echo '  fvm --version                               Print out the installed version of fvm'
         fvm_echo '  fvm install <version>                       Download and install a <version>.'
-        fvm_echo '  fvm uninstall <version>                     Uninstall a version'
+        fvm_echo '  fvm uninstall <version>                     Uninstall a <version>'
         fvm_echo '  fvm use <version>                           Modify PATH to use flutter <version>.'
         fvm_echo '   The following optional arguments:'
         fvm_echo '    -g,--global                               Set global default flutter <version>.'
@@ -501,8 +484,8 @@ fvm() {
         fvm_echo '    -g,--global                               Unset global default flutter <version>.'
         fvm_echo '  fvm unload                                  Unload `fvm` from shell'
         fvm_echo 'Example:'
-        fvm_echo '  fvm install 3.0                       Install the lastest 3.0.x version of flutter'
-        fvm_echo '  fvm use 2.0.0                         Use 2.0.0 release'
+        fvm_echo '  fvm install 3.0.0                     Install the 3.0.0 version of flutter'
+        fvm_echo '  fvm use 2.0.0                         Use 2.0.0 version of flutter'
         fvm_echo
         fvm_echo 'Note:'
         fvm_echo '  to remove, delete, or uninstall fvm - just remove the `$FVM_DIR` folder (usually `~/.fvm`)'
@@ -637,8 +620,8 @@ fvm() {
       FVM_LS_REMOTE_OUTPUT="$(fvm_ls_remote "$@")"
       FVM_LS_REMOTE_EXIT_CODE=$?
       if [ -n "${FVM_LS_REMOTE_OUTPUT}" ]; then
-        fvm_echo "${FVM_LS_REMOTE_OUTPUT}"
-        return $FVM_LS_REMOTE_EXIT_CODE
+        fvm_echo "${FVM_LS_REMOTE_OUTPUT}" | command uniq
+        return 0
       fi
       fvm_echo "N/A"
       return 3
