@@ -396,10 +396,14 @@ fvm_install(){
   fi
   local TMPPATH="${CACHE_DIR}/tmp"
   local VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
-  command unzip -oq $ARCHIVE_PATH -d $TMPPATH >/dev/null 2>&1
+  if [ "_${FVM_OS}" = "_linux" ]; then
+    command tar -xf $ARCHIVE_PATH -C $TMPPATH >/dev/null 2>&1
+  else
+    command unzip -oq $ARCHIVE_PATH -d $TMPPATH >/dev/null 2>&1
+  fi
   EXIT_CODE=$?
   if [ "${EXIT_CODE}" != "0" ]; then
-    fvm_err "fvm: unzip downloaded .zip failed, you can remove it by:"
+    fvm_err "fvm: unzip downloaded ${ARCHIVE} failed, you can remove it by:"
     fvm_err "  rm ${ARCHIVE_PATH}"
     fvm_err "and install again:"
     fvm_err "  fvm install ${PROVIDED_VERSION}"
@@ -408,7 +412,7 @@ fvm_install(){
   command mkdir -p `dirname ${VERSION_DIR}`
   command mv "${TMPPATH}/flutter" $VERSION_DIR >/dev/null 2>&1
   command rm -fr $TMPPATH >/dev/null 2>&1
-  fvm_err "Now $VERSION is installed"
+  fvm_err "Now $PROVIDED_VERSION is installed"
 
   EXIT_CODE=$?
   return EXIT_CODE
