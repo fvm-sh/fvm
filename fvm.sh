@@ -676,7 +676,7 @@ fvm() {
       fvm_link "$@"
     ;;
     "--version" | "-v")
-      fvm_echo 'v0.2.3'
+      fvm_echo 'v0.3.0'
     ;;
     "deactivate")
       local FVM_GLOBAL
