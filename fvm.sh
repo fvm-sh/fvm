@@ -418,6 +418,37 @@ fvm_install(){
   return EXIT_CODE
 }
 
+fvm_link() {
+  local PROVIDED_VERSION="${1-}"
+  if [ -z "${PROVIDED_VERSION}" ]; then
+    fvm_err "fvm: version is required !!"
+    return 127
+  fi
+
+  if ! fvm_is_version_installed "${PROVIDED_VERSION}"; then
+    fvm_err "fvm: version \"${PROVIDED_VERSION}\" is not yet installed."
+    fvm_err ""
+    fvm_err "You need to run \`fvm install ${PROVIDED_VERSION}\` to install and use it."
+    return 1
+  fi
+
+  local FVM_VERSION_DIR
+  FVM_VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
+  command mkdir -p ".flutter"
+  command rm -rf ".flutter/sdk" >/dev/null 2>&1
+  command ln -sfn "${FVM_VERSION_DIR}" ".flutter/sdk" >/dev/null 2>&1
+  fvm_echo "sdk" > ".flutter/.gitignore"
+  fvm_echo "${PROVIDED_VERSION}" > ".flutter/version"
+  fvm_echo 'The Flutter SDK version of this project is maintained by [fvm-sh/fvm](https://github.com/fvm-sh/fvm).' > ".flutter/README.md"
+  fvm_echo '' >> ".flutter/README.md"
+  fvm_echo 'Current used version is recorded in file [version](./version)' >> ".flutter/README.md"
+  fvm_echo '' >> ".flutter/README.md"
+  fvm_echo 'Cooperators could install [fvm-sh/fvm](https://github.com/fvm-sh/fvm) and run following script for this project:' >> ".flutter/README.md"
+  fvm_echo '```bash' >> ".flutter/README.md"
+  fvm_echo 'fvm use `cat .flutter/version`' >> ".flutter/README.md"
+  fvm_echo '```' >> ".flutter/README.md"
+}
+
 fvm() {
   if [ "$#" -lt 1 ]; then
     fvm --help
@@ -475,8 +506,8 @@ fvm() {
         fvm_echo '  fvm use <version>                           Modify PATH to use flutter <version>.'
         fvm_echo '   The following optional arguments:'
         fvm_echo '    -g,--global                               Set global default flutter <version>.'
+        fvm_echo '  fvm link <version>                          Create a soft link ".flutter/sdk" to <version> of Flutter.'
         fvm_echo '  fvm current                                 Display currently activated version of Flutter.'
-        fvm_echo '  fvm link <version>                          Create a soft link ".flutter" to <version> of Flutter.'
         fvm_echo '  fvm ls [<version>]                          List installed versions, matching a given <version> if provided'
         fvm_echo '  fvm ls-remote [<version>]                   List remote versions available for install, matching a given <version> if provided'
         fvm_echo '   The following optional arguments:'
@@ -642,24 +673,7 @@ fvm() {
       fi
     ;;
     "link")
-      local PROVIDED_VERSION="${1-}"
-      if [ -z "${PROVIDED_VERSION}" ]; then
-        fvm_err "fvm: version is required !!"
-        return 127
-      fi
-
-      if ! fvm_is_version_installed "${PROVIDED_VERSION}"; then
-        fvm_err "fvm: version \"${PROVIDED_VERSION}\" is not yet installed."
-        fvm_err ""
-        fvm_err "You need to run \`fvm install ${PROVIDED_VERSION}\` to install and use it."
-        return 1
-      fi
-
-      local FVM_VERSION_DIR
-      FVM_VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
-
-      command rm -r ".flutter" >/dev/null 2>&1
-      command ln -s "${FVM_VERSION_DIR}" ".flutter" >/dev/null 2>&1
+      fvm_link "$@"
     ;;
     "--version" | "-v")
       fvm_echo 'v0.2.3'
@@ -705,7 +719,7 @@ fvm() {
         fvm_get_os fvm_get_arch \ fvm_find_up \
         fvm_tree_contains_path fvm_strip_path fvm_change_path \
         fvm_version_greater_than_or_equal_to \
-        fvm_download \
+        fvm_download fvm_link \
         fvm_cache_dir fvm_is_version_installed fvm_version_path \
         fvm_curl_use_compression \ fvm_curl_libz_support \
         >/dev/null 2>&1
