@@ -272,14 +272,14 @@ IDEs usually need flutter sdk path to provide services, you can create a soft li
 ``` sh
 fvm link 3.3.8
 ```
-This will link installed 3.3.8 version path to `.flutter` under current directory.
+This will link installed 3.3.8 version path to `.flutter/sdk` under current directory.
 
 Then you can config IDEs (like VS Code) with this soft link:
 
 .vscode/settings.json
 ``` json
 {
-  "dart.flutterSdkPath": ".flutter",
+  "dart.flutterSdkPath": ".flutter/sdk",
 }
 ```
 ## Environment variables
