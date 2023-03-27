@@ -342,113 +342,6 @@ fvm_ls_global() {
   fi
 }
 
-fvm_install(){
-  local PROVIDED_VERSION
-  PROVIDED_VERSION="${1-}"
-
-  if [ -z "${PROVIDED_VERSION}" ];then
-    fvm_err "fvm: version is required !!" 
-    return 1
-  fi
-
-  if fvm_is_version_installed "${PROVIDED_VERSION}"; then
-    fvm_err "fvm: version '${PROVIDED_VERSION}' is already installed."
-    return
-  fi
-
-  local FVM_OS="$(fvm_get_os)"
-  local FVM_ARCH="$(fvm_get_arch)"
-  local RELEASES
-  RELEASES="$(fvm_releases "_${PROVIDED_VERSION}-")"
-  if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ] && fvm_version_greater_than_or_equal_to "${PROVIDED_VERSION}" "2.12.0"; then
-    RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep "arm64")"
-  else
-    RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep -v "arm64")"
-  fi
-
-  local ARCHIVE
-  ARCHIVE="$(fvm_echo "${RELEASES}" | command awk 'NR==1')"
-
-  if [ -z "${ARCHIVE}" ]; then
-    local REMOTE_CMD
-    REMOTE_CMD='fvm ls-remote'
-    fvm_err "Version '${PROVIDED_VERSION}' not found - try \`${REMOTE_CMD}\` to browse available versions."
-    return 3
-  fi
-
-  local EXIT_CODE
-  EXIT_CODE=0
-  if fvm_is_version_installed "${PROVIDED_VERSION}"; then
-    fvm_err "${PROVIDED_VERSION} is already installed."
-    return
-  fi
-  local CACHE_DIR="$(fvm_cache_dir)"
-  local ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE}"
-  if [ ! -f "${ARCHIVE_PATH}" ]; then
-    command mkdir -p `dirname $ARCHIVE_PATH`
-    local STORAGE_BASE="${FLUTTER_STORAGE_BASE_URL:-"https://storage.googleapis.com"}"
-    local ARCHIVE_URL="${STORAGE_BASE}/flutter_infra_release/releases/${ARCHIVE}"
-    fvm_download --progress-bar -o "$ARCHIVE_PATH" "$ARCHIVE_URL"
-    EXIT_CODE=$?
-    if [ "${EXIT_CODE}" != "0" ]; then
-      return EXIT_CODE
-    fi
-  fi
-  local TMPPATH="${CACHE_DIR}/tmp"
-  local VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
-  if [ "_${FVM_OS}" = "_linux" ]; then
-    command tar -xf $ARCHIVE_PATH -C $TMPPATH >/dev/null 2>&1
-  else
-    command unzip -oq $ARCHIVE_PATH -d $TMPPATH >/dev/null 2>&1
-  fi
-  EXIT_CODE=$?
-  if [ "${EXIT_CODE}" != "0" ]; then
-    fvm_err "fvm: unzip downloaded ${ARCHIVE} failed, you can remove it by:"
-    fvm_err "  rm ${ARCHIVE_PATH}"
-    fvm_err "and install again:"
-    fvm_err "  fvm install ${PROVIDED_VERSION}"
-    return EXIT_CODE
-  fi
-  command mkdir -p `dirname ${VERSION_DIR}`
-  command mv "${TMPPATH}/flutter" $VERSION_DIR >/dev/null 2>&1
-  command rm -fr $TMPPATH >/dev/null 2>&1
-  fvm_err "Now $PROVIDED_VERSION is installed"
-
-  EXIT_CODE=$?
-  return EXIT_CODE
-}
-
-fvm_link() {
-  local PROVIDED_VERSION="${1-}"
-  if [ -z "${PROVIDED_VERSION}" ]; then
-    fvm_err "fvm: version is required !!"
-    return 127
-  fi
-
-  if ! fvm_is_version_installed "${PROVIDED_VERSION}"; then
-    fvm_err "fvm: version \"${PROVIDED_VERSION}\" is not yet installed."
-    fvm_err ""
-    fvm_err "You need to run \`fvm install ${PROVIDED_VERSION}\` to install and use it."
-    return 1
-  fi
-
-  local FVM_VERSION_DIR
-  FVM_VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
-  command mkdir -p ".fvm"
-  command rm -rf ".fvm/flutter" >/dev/null 2>&1
-  command ln -sfn "${FVM_VERSION_DIR}" ".fvm/flutter" >/dev/null 2>&1
-  fvm_echo "flutter" > ".fvm/.gitignore"
-  fvm_echo "${PROVIDED_VERSION}" > ".fvm/flutter.version"
-  fvm_echo 'The Flutter SDK version of this project is maintained by [fvm-sh/fvm](https://github.com/fvm-sh/fvm).' > ".fvm/README.md"
-  fvm_echo '' >> ".fvm/README.md"
-  fvm_echo 'Currently used Flutter SDK version is recorded in file [flutter.version](./flutter.version)' >> ".fvm/README.md"
-  fvm_echo '' >> ".fvm/README.md"
-  fvm_echo 'Contributors of this project could install [fvm-sh/fvm](https://github.com/fvm-sh/fvm) and run following script for this project:' >> ".fvm/README.md"
-  fvm_echo '```bash' >> ".fvm/README.md"
-  fvm_echo 'fvm use `cat .fvm/flutter.version`' >> ".fvm/README.md"
-  fvm_echo '```' >> ".fvm/README.md"
-}
-
 fvm() {
   if [ "$#" -lt 1 ]; then
     fvm --help
@@ -547,7 +440,75 @@ fvm() {
 
       local EXIT_CODE
       EXIT_CODE=0
-      fvm_install "$@"
+      local PROVIDED_VERSION
+      PROVIDED_VERSION="${1-}"
+
+      if [ -z "${PROVIDED_VERSION}" ];then
+        fvm_err "fvm: version is required !!" 
+        return 1
+      fi
+
+      if fvm_is_version_installed "${PROVIDED_VERSION}"; then
+        fvm_err "fvm: version '${PROVIDED_VERSION}' is already installed."
+        return 0
+      fi
+
+      local FVM_OS="$(fvm_get_os)"
+      local FVM_ARCH="$(fvm_get_arch)"
+      local RELEASES
+      RELEASES="$(fvm_releases "_${PROVIDED_VERSION}-")"
+      if [ "_${FVM_OS}" = "_macos" ] && [ "_${FVM_ARCH}" = "_arm64" ] && fvm_version_greater_than_or_equal_to "${PROVIDED_VERSION}" "2.12.0"; then
+        RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep "arm64")"
+      else
+        RELEASES="$(fvm_echo "${RELEASES}" | fvm_grep -v "arm64")"
+      fi
+
+      local ARCHIVE
+      ARCHIVE="$(fvm_echo "${RELEASES}" | command awk 'NR==1')"
+
+      if [ -z "${ARCHIVE}" ]; then
+        local REMOTE_CMD
+        REMOTE_CMD='fvm ls-remote'
+        fvm_err "Version '${PROVIDED_VERSION}' not found - try \`${REMOTE_CMD}\` to browse available versions."
+        return 3
+      fi
+
+      if fvm_is_version_installed "${PROVIDED_VERSION}"; then
+        fvm_err "${PROVIDED_VERSION} is already installed."
+        return
+      fi
+      local CACHE_DIR="$(fvm_cache_dir)"
+      local ARCHIVE_PATH="${CACHE_DIR}/${ARCHIVE}"
+      if [ ! -f "${ARCHIVE_PATH}" ]; then
+        command mkdir -p `dirname $ARCHIVE_PATH`
+        local STORAGE_BASE="${FLUTTER_STORAGE_BASE_URL:-"https://storage.googleapis.com"}"
+        local ARCHIVE_URL="${STORAGE_BASE}/flutter_infra_release/releases/${ARCHIVE}"
+        fvm_download --progress-bar -o "$ARCHIVE_PATH" "$ARCHIVE_URL"
+        EXIT_CODE=$?
+        if [ "${EXIT_CODE}" != "0" ]; then
+          return EXIT_CODE
+        fi
+      fi
+      local TMPPATH="${CACHE_DIR}/tmp"
+      local VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
+      if [ "_${FVM_OS}" = "_linux" ]; then
+        command tar -xf $ARCHIVE_PATH -C $TMPPATH >/dev/null 2>&1
+      else
+        command unzip -oq $ARCHIVE_PATH -d $TMPPATH >/dev/null 2>&1
+      fi
+      EXIT_CODE=$?
+      if [ "${EXIT_CODE}" != "0" ]; then
+        fvm_err "fvm: unzip downloaded ${ARCHIVE} failed, you can remove it by:"
+        fvm_err "  rm ${ARCHIVE_PATH}"
+        fvm_err "and install again:"
+        fvm_err "  fvm install ${PROVIDED_VERSION}"
+        return EXIT_CODE
+      fi
+      command mkdir -p `dirname ${VERSION_DIR}`
+      command mv "${TMPPATH}/flutter" $VERSION_DIR >/dev/null 2>&1
+      command rm -fr $TMPPATH >/dev/null 2>&1
+      fvm_err "Version $PROVIDED_VERSION installed successfully!"
+      fvm use "$PROVIDED_VERSION"
       EXIT_CODE=$?
       return $EXIT_CODE
     ;;
@@ -673,7 +634,34 @@ fvm() {
       fi
     ;;
     "link")
-      fvm_link "$@"
+      local PROVIDED_VERSION="${1-}"
+      if [ -z "${PROVIDED_VERSION}" ]; then
+        fvm_err "fvm: version is required !!"
+        return 127
+      fi
+
+      if ! fvm_is_version_installed "${PROVIDED_VERSION}"; then
+        fvm_err "fvm: version \"${PROVIDED_VERSION}\" is not yet installed."
+        fvm_err ""
+        fvm_err "You need to run \`fvm install ${PROVIDED_VERSION}\` to install and use it."
+        return 1
+      fi
+
+      local FVM_VERSION_DIR
+      FVM_VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
+      command mkdir -p ".fvm"
+      command rm -rf ".fvm/flutter" >/dev/null 2>&1
+      command ln -sfn "${FVM_VERSION_DIR}" ".fvm/flutter" >/dev/null 2>&1
+      fvm_echo "flutter" > ".fvm/.gitignore"
+      fvm_echo "${PROVIDED_VERSION}" > ".fvm/flutter.version"
+      fvm_echo 'The Flutter SDK version of this project is maintained by [fvm-sh/fvm](https://github.com/fvm-sh/fvm).' > ".fvm/README.md"
+      fvm_echo '' >> ".fvm/README.md"
+      fvm_echo 'Currently used Flutter SDK version is recorded in file [flutter.version](./flutter.version)' >> ".fvm/README.md"
+      fvm_echo '' >> ".fvm/README.md"
+      fvm_echo 'Contributors of this project could install [fvm-sh/fvm](https://github.com/fvm-sh/fvm) and run following script for this project:' >> ".fvm/README.md"
+      fvm_echo '```bash' >> ".fvm/README.md"
+      fvm_echo 'fvm use `cat .fvm/flutter.version`' >> ".fvm/README.md"
+      fvm_echo '```' >> ".fvm/README.md"
     ;;
     "--version" | "-v")
       fvm_echo 'v0.3.0'
@@ -713,13 +701,12 @@ fvm() {
     "unload")
       fvm deactivate >/dev/null 2>&1
       unset -f fvm \
-        fvm_ls_global fvm_ls_system fvm_ls_current \
-        fvm_releases fvm_ls fvm_ls_remote fvm_install \
+        fvm_ls_global fvm_ls_system fvm_ls_current fvm_ls fvm_ls_remote \
+        fvm_releases fvm_download \
         fvm_echo fvm_err fvm_grep fvm_cd fvm_has fvm_is_zsh \
         fvm_get_os fvm_get_arch \ fvm_find_up \
         fvm_tree_contains_path fvm_strip_path fvm_change_path \
         fvm_version_greater_than_or_equal_to \
-        fvm_download fvm_link \
         fvm_cache_dir fvm_is_version_installed fvm_version_path \
         fvm_curl_use_compression \ fvm_curl_libz_support \
         >/dev/null 2>&1
