@@ -434,19 +434,19 @@ fvm_link() {
 
   local FVM_VERSION_DIR
   FVM_VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
-  command mkdir -p ".flutter"
-  command rm -rf ".flutter/sdk" >/dev/null 2>&1
-  command ln -sfn "${FVM_VERSION_DIR}" ".flutter/sdk" >/dev/null 2>&1
-  fvm_echo "sdk" > ".flutter/.gitignore"
-  fvm_echo "${PROVIDED_VERSION}" > ".flutter/version"
-  fvm_echo 'The Flutter SDK version of this project is maintained by [fvm-sh/fvm](https://github.com/fvm-sh/fvm).' > ".flutter/README.md"
-  fvm_echo '' >> ".flutter/README.md"
-  fvm_echo 'Current used version is recorded in file [version](./version)' >> ".flutter/README.md"
-  fvm_echo '' >> ".flutter/README.md"
-  fvm_echo 'Cooperators could install [fvm-sh/fvm](https://github.com/fvm-sh/fvm) and run following script for this project:' >> ".flutter/README.md"
-  fvm_echo '```bash' >> ".flutter/README.md"
-  fvm_echo 'fvm use `cat .flutter/version`' >> ".flutter/README.md"
-  fvm_echo '```' >> ".flutter/README.md"
+  command mkdir -p ".fvm"
+  command rm -rf ".fvm/flutter" >/dev/null 2>&1
+  command ln -sfn "${FVM_VERSION_DIR}" ".fvm/flutter" >/dev/null 2>&1
+  fvm_echo "flutter" > ".fvm/.gitignore"
+  fvm_echo "${PROVIDED_VERSION}" > ".fvm/flutter.version"
+  fvm_echo 'The Flutter SDK version of this project is maintained by [fvm-sh/fvm](https://github.com/fvm-sh/fvm).' > ".fvm/README.md"
+  fvm_echo '' >> ".fvm/README.md"
+  fvm_echo 'Currently used Flutter SDK version is recorded in file [flutter.version](./flutter.version)' >> ".fvm/README.md"
+  fvm_echo '' >> ".fvm/README.md"
+  fvm_echo 'Contributors of this project could install [fvm-sh/fvm](https://github.com/fvm-sh/fvm) and run following script for this project:' >> ".fvm/README.md"
+  fvm_echo '```bash' >> ".fvm/README.md"
+  fvm_echo 'fvm use `cat .fvm/flutter.version`' >> ".fvm/README.md"
+  fvm_echo '```' >> ".fvm/README.md"
 }
 
 fvm() {
@@ -506,7 +506,7 @@ fvm() {
         fvm_echo '  fvm use <version>                           Modify PATH to use flutter <version>.'
         fvm_echo '   The following optional arguments:'
         fvm_echo '    -g,--global                               Set global default flutter <version>.'
-        fvm_echo '  fvm link <version>                          Create a soft link ".flutter/sdk" to <version> of Flutter.'
+        fvm_echo '  fvm link <version>                          Create a soft link ".fvm/flutter" to <version> of Flutter.'
         fvm_echo '  fvm current                                 Display currently activated version of Flutter.'
         fvm_echo '  fvm ls [<version>]                          List installed versions, matching a given <version> if provided'
         fvm_echo '  fvm ls-remote [<version>]                   List remote versions available for install, matching a given <version> if provided'
