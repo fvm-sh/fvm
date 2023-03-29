@@ -601,9 +601,6 @@ fvm() {
       if [ "${FVM_USE_GLOBAL}" = "1" ]; then
         fvm_echo "${PROVIDED_VERSION}" > "${FVM_DIR}/flutter.version"
       fi
-      if [ -f "pubspec.yaml" ]; then
-        fvm link "${PROVIDED_VERSION}"
-      fi
     ;;
     "ls" | "list")
       local FVM_LS_OUTPUT
