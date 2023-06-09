@@ -304,7 +304,7 @@ fvm_ls() {
           s#^versions/##;
         " \
         -e 's#^\([^/]\{1,\}\)/\(.*\)$#\2.\1#;' \
-      | command sort -t. -u -k 1.2,1n -k 2,2n -k 3,3n \
+      | command sort -t. -k 1,1nr -k 2,2nr -k 3,3nr \
     )"
   fi
 
