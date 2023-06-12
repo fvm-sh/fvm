@@ -664,7 +664,7 @@ fvm() {
       fvm_echo '```' >> ".fvm/README.md"
     ;;
     "--version" | "-v")
-      fvm_echo 'v0.4.0'
+      fvm_echo 'v0.4.1'
     ;;
     "deactivate")
       local FVM_GLOBAL

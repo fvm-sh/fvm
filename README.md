@@ -1,4 +1,4 @@
-# Flutter Version Manager [![fvm version](https://img.shields.io/badge/version-v0.4.0-40d0fd.svg)][2]
+# Flutter Version Manager [![fvm version](https://img.shields.io/badge/version-v0.4.1-40d0fd.svg)][2]
 
 Inspired by [nvm](https://github.com/nvm-sh/nvm)
 
@@ -67,10 +67,10 @@ Simple as that!
 
 To **install** or **update** fvm, you should run the [install script][1]. To do that, you may either download and run the script manually, or use the following cURL or Wget command:
 ```sh
-curl -o- https://raw.githubusercontent.com/fvm-sh/fvm/v0.4.0/install.sh | bash
+curl -o- https://raw.githubusercontent.com/fvm-sh/fvm/v0.4.1/install.sh | bash
 ```
 ```sh
-wget -qO- https://raw.githubusercontent.com/fvm-sh/fvm/v0.4.0/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/fvm-sh/fvm/v0.4.1/install.sh | bash
 ```
 
 Running either of the above commands downloads a script and runs it. The script clones the fvm repository to `~/.fvm`, and attempts to add the source lines from the snippet below to the correct profile file (`~/.bash_profile`, `~/.zshrc`, `~/.profile`, or `~/.bashrc`).
@@ -158,7 +158,7 @@ If you have `git` installed (requires git v1.7.10+):
 
 1. clone this repo in the root of your user profile
     - `cd ~/` from anywhere then `git clone https://github.com/fvm-sh/fvm.git .fvm`
-1. `cd ~/.fvm` and check out the latest version with `git checkout v0.4.0`
+1. `cd ~/.fvm` and check out the latest version with `git checkout v0.4.1`
 1. activate `fvm` by sourcing it from your shell: `. ./fvm.sh`
 
 Now add these lines to your `~/.bashrc`, `~/.profile`, or `~/.zshrc` file to have it automatically sourced upon login:
@@ -368,8 +368,8 @@ You have to make sure that the user directory name in `$HOME` and the user direc
 
 To change the user directory and/or account name follow the instructions [here](https://support.apple.com/en-us/HT201548)
 
-[1]: https://github.com/fvm-sh/fvm/blob/v0.4.0/install.sh
-[2]: https://github.com/fvm-sh/fvm/releases/tag/v0.4.0
+[1]: https://github.com/fvm-sh/fvm/blob/v0.4.1/install.sh
+[2]: https://github.com/fvm-sh/fvm/releases/tag/v0.4.1
 
 **Homebrew makes zsh directories unsecure**
 
