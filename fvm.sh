@@ -397,8 +397,6 @@ fvm() {
         fvm_echo '  fvm install <version>                       Download and install a <version>.'
         fvm_echo '  fvm uninstall <version>                     Uninstall a <version>'
         fvm_echo '  fvm use <version>                           Modify PATH to use flutter <version>.'
-        fvm_echo '   The following optional arguments:'
-        fvm_echo '    -g,--global                               Set global default flutter <version>.'
         fvm_echo '  fvm link <version>                          Create a soft link ".fvm/flutter" to <version> of Flutter.'
         fvm_echo '  fvm current                                 Display currently activated version of Flutter.'
         fvm_echo '  fvm ls [<version>]                          List installed versions, matching a given <version> if provided'
@@ -543,12 +541,12 @@ fvm() {
     ;;
     "use")
       local PROVIDED_VERSION
-      local FVM_USE_GLOBAL
+      local FVM_USE_SILENT
 
       while [ $# -ne 0 ]; do
         case "$1" in
-          -g | --global)
-            FVM_USE_GLOBAL=1
+          --silent)
+            FVM_USE_SILENT=1
           ;;
           *)
             if [ -n "${1-}" ]; then
@@ -597,9 +595,9 @@ fvm() {
       fi
       export PATH
       hash -r
-      fvm_echo "Now using flutter ${PROVIDED_VERSION}"
-      if [ "${FVM_USE_GLOBAL}" = "1" ]; then
-        fvm_echo "${PROVIDED_VERSION}" > "${FVM_DIR}/flutter.version"
+      fvm_echo "${PROVIDED_VERSION}" > "${FVM_DIR}/flutter.version"
+      if [ "${FVM_USE_SILENT}" != "1" ]; then
+        fvm_echo "Now using flutter ${PROVIDED_VERSION}"
       fi
     ;;
     "ls" | "list")
