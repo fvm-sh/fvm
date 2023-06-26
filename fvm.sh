@@ -406,8 +406,6 @@ fvm() {
         fvm_echo '    --no-beta                                 Exclude beta released versions'
         fvm_echo '    --no-dev                                  Exclude dev released versions'
         fvm_echo '  fvm deactivate                              Undo effects of `fvm` on current shell'
-        fvm_echo '   The following optional arguments:'
-        fvm_echo '    -g,--global                               Unset global default flutter <version>.'
         fvm_echo '  fvm unload                                  Unload `fvm` from shell'
         fvm_echo '  fvm cache dir                               Display path to the cache directory for fvm'
         fvm_echo '  fvm cache clear                             Empty cache directory for fvm'
@@ -686,14 +684,6 @@ fvm() {
       fvm_echo 'v0.4.1'
     ;;
     "deactivate")
-      local FVM_GLOBAL
-      while [ $# -ne 0 ]; do
-        case "${1}" in
-          -g | --global) FVM_GLOBAL=1 ;;
-          --) ;;
-        esac
-        shift
-      done
       local NEWPATH
       NEWPATH="$(fvm_strip_path "${PATH}" "/bin")"
       if [ "_${PATH}" = "_${NEWPATH}" ]; then
@@ -712,9 +702,6 @@ fvm() {
           export MANPATH="${NEWPATH}"
           fvm_err "${FVM_DIR}/*/share/man removed from \${MANPATH}"
         fi
-      fi
-      if [ "${FVM_GLOBAL}" = "1" ]; then
-        command rm "${FVM_DIR}/flutter.version"
       fi
     ;;
     "unload")
