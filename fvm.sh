@@ -409,6 +409,8 @@ fvm() {
         fvm_echo '   The following optional arguments:'
         fvm_echo '    -g,--global                               Unset global default flutter <version>.'
         fvm_echo '  fvm unload                                  Unload `fvm` from shell'
+        fvm_echo '  fvm cache dir                               Display path to the cache directory for fvm'
+        fvm_echo '  fvm cache clear                             Empty cache directory for fvm'
         fvm_echo 'Example:'
         fvm_echo '  fvm install 3.0.0                     Install the 3.0.0 version of flutter'
         fvm_echo '  fvm use 2.0.0                         Use 2.0.0 version of flutter'
@@ -429,6 +431,25 @@ fvm() {
   local VERSION
 
   case $COMMAND in
+    "cache")
+      case "${1-}" in
+        dir) fvm_cache_dir ;;
+        clear)
+          local DIR
+          DIR="$(fvm_cache_dir)"
+          if command rm -rf "${DIR}" && command mkdir -p "${DIR}"; then
+            fvm_echo 'fvm cache cleared.'
+          else
+            fvm_err "Unable to clear fvm cache: ${DIR}"
+            return 1
+          fi
+        ;;
+        *)
+          >&2 fvm --help
+          return 127
+        ;;
+      esac
+    ;;
     "install" | "i")
 
       if ! fvm_has "curl" && ! fvm_has "wget"; then
