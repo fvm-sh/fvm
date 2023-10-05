@@ -507,6 +507,9 @@ fvm() {
         fi
       fi
       local TMPPATH="${CACHE_DIR}/tmp"
+      if [ ! -d $TMPPATH ]; then
+        mkdir -p $TMPPATH;
+      fi
       local VERSION_DIR="$(fvm_version_path "${PROVIDED_VERSION}")"
       if [ "_${FVM_OS}" = "_linux" ]; then
         command tar -xf $ARCHIVE_PATH -C $TMPPATH >/dev/null 2>&1
