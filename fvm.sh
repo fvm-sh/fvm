@@ -684,7 +684,7 @@ fvm() {
       fvm_echo '```' >> ".fvm/README.md"
     ;;
     "--version" | "-v")
-      fvm_echo 'v0.5.0'
+      fvm_echo 'v0.5.1'
     ;;
     "deactivate")
       local NEWPATH
